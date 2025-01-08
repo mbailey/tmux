@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Script to manage tmux configuration using stow
+# Dependencies: stow, tmux
+
+CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Print with color
+print_status() {
+    local color=$1
+    shift
+    printf "${color}%s${NC}\n" "$*"
+}
+
+# Check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Perform stow simulation and get result
+simulate_stow() {
+    if stow --target="${HOME}" --dotfiles --simulate --verbose config 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Main configuration process
+main() {
+    # Check if stow is installed
+    if ! command_exists stow; then
+        print_status "${RED}" "stow is not installed. Please install it first."
+        exit 1
+    fi
+
+    # Run simulation first
+    print_status "${YELLOW}" "Simulating stow operation..."
+    
+    if simulation_output=$(simulate_stow); then
+        print_status "${GREEN}" "Simulation successful! Here's what will happen:"
+        echo "${simulation_output}"
+        default="Y"
+    else
+        print_status "${RED}" "Simulation showed potential issues:"
+        echo "${simulation_output}"
+        default="N"
+    fi
+
+    # Ask for confirmation
+    read -p "Do you want to proceed with the actual stow operation? (Y/n) [${default}] " response
+    response=${response:-$default}
+
+    if [[ ${response,,} =~ ^y(es)?$ || ( ${default} == "Y" && -z "$response" ) ]]; then
+        print_status "${GREEN}" "Proceeding with stow operation..."
+        if stow --target="${HOME}" --dotfiles --verbose config; then
+            print_status "${GREEN}" "Configuration successfully installed!"
+        else
+            print_status "${RED}" "Error occurred during stow operation"
+            exit 1
+        fi
+    else
+        print_status "${YELLOW}" "Operation cancelled by user"
+        exit 0
+    fi
+}
+
+main "$@"

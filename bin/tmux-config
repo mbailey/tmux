@@ -52,47 +52,30 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Perform a dry-run stow operation
+# Perform stow operation
+# Args:
+#   $1 - boolean: true for simulation mode, false for actual operation
 # Returns:
-#   0 if simulation successful, 1 otherwise
+#   0 if successful, 1 otherwise
 # Outputs:
-#   Simulation results to stdout
-simulate_stow() {
+#   Stow operation results to stdout
+do_stow() {
+    local simulate=$1
     local success=0
+    local sim_arg=""
+    
+    [[ "${simulate}" == "true" ]] && sim_arg="--simulate"
     
     case "${STOW_TYPE}" in
         config|all)
-            stow --target="${HOME}" --dotfiles --simulate --verbose --dir="${CONFIG_DIR}" config 2>&1 || success=1
+            stow --target="${HOME}" --dotfiles ${sim_arg} --verbose --dir="${CONFIG_DIR}" config 2>&1 || success=1
             ;;
     esac
     
     case "${STOW_TYPE}" in
         exec|all)
             if [[ -d "${CONFIG_DIR}/bin" ]]; then
-                stow --target="${BIN_DIR}" --simulate --verbose --dir="${CONFIG_DIR}" bin 2>&1 || success=1
-            fi
-            ;;
-    esac
-    
-    return $success
-}
-
-# Execute the actual stow operation
-# Returns:
-#   0 if stow successful, 1 otherwise
-perform_stow() {
-    local success=0
-    
-    case "${STOW_TYPE}" in
-        config|all)
-            stow --target="${HOME}" --dotfiles --verbose --dir="${CONFIG_DIR}" config || success=1
-            ;;
-    esac
-    
-    case "${STOW_TYPE}" in
-        exec|all)
-            if [[ -d "${CONFIG_DIR}/bin" ]]; then
-                stow --target="${BIN_DIR}" --verbose --dir="${CONFIG_DIR}" bin || success=1
+                stow --target="${BIN_DIR}" ${sim_arg} --verbose --dir="${CONFIG_DIR}" bin 2>&1 || success=1
             fi
             ;;
     esac
@@ -136,7 +119,7 @@ handle_simulation() {
     
     print_status "${YELLOW}" "Simulating stow operation..."
     
-    if simulation_output=$(simulate_stow); then
+    if simulation_output=$(do_stow true); then
         print_status "${GREEN}" "Simulation successful! Here's what will happen:"
         echo "${simulation_output}"
         default="Y"
@@ -152,7 +135,7 @@ handle_simulation() {
 # Execute the stow operation
 execute_stow() {
     print_status "${GREEN}" "Proceeding with stow operation..."
-    if perform_stow; then
+    if do_stow false; then
         print_status "${GREEN}" "Configuration successfully installed!"
         return 0
     else

@@ -7,8 +7,7 @@ set -euo pipefail
 
 CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo $CONFIG_DIR
-exit
+cd "$CONFIG_DIR"
 
 # Colors for output
 RED='\033[0;31m'
@@ -30,7 +29,7 @@ command_exists() {
 
 # Perform stow simulation and get result
 simulate_stow() {
-    if stow --target="${HOME}" --dotfiles --simulate --verbose config 2>&1; then
+    if stow --target="${HOME}" --dotfiles --simulate --verbose --dir="${CONFIG_DIR}" config 2>&1; then
         return 0
     else
         return 1
@@ -64,7 +63,7 @@ main() {
 
     if [[ ${response,,} =~ ^y(es)?$ || ( ${default} == "Y" && -z "$response" ) ]]; then
         print_status "${GREEN}" "Proceeding with stow operation..."
-        if stow --target="${HOME}" --dotfiles --verbose config; then
+        if stow --target="${HOME}" --dotfiles --verbose --dir="${CONFIG_DIR}" config; then
             print_status "${GREEN}" "Configuration successfully installed!"
         else
             print_status "${RED}" "Error occurred during stow operation"

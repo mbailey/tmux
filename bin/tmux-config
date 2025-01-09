@@ -116,8 +116,13 @@ handle_simulation() {
     print_status "${YELLOW}" "Simulating stow operation..."
     
     if simulation_output=$(do_stow true); then
-        print_status "${GREEN}" "Simulation successful! Here's what will happen:"
-        echo "${simulation_output}"
+        print_status "${GREEN}" "Simulation successful!"
+        if [[ -z "${simulation_output}" ]]; then
+            print_status "${YELLOW}" "All required links already exist - nothing to do"
+        else
+            print_status "${GREEN}" "Here's what will happen:"
+            echo "${simulation_output}"
+        fi
         default="Y"
     else
         print_status "${RED}" "Simulation showed potential issues:"

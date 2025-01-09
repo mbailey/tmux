@@ -108,35 +108,6 @@ check_prerequisites() {
     fi
 }
 
-# Run the stow simulation and handle the output
-# Returns:
-#   "Y" if simulation successful, "N" otherwise
-handle_simulation() {
-    local simulation_output
-    local filtered_output
-    local default="Y"
-    
-    print_status "${YELLOW}" "Simulating stow operation..."
-    
-    if simulation_output=$(do_stow true 2>&1); then
-        # Filter out the simulation mode warning
-        filtered_output=$(echo "$simulation_output" | grep -v "WARNING: in simulation mode")
-        
-        if [[ -z "$filtered_output" ]]; then
-            print_status "${GREEN}" "All required links are already in place:"
-            stow --target="${HOME}" --dotfiles --verbose --dir="${CONFIG_DIR}" -n -v config 2>/dev/null | grep "would skip" || true
-        else
-            print_status "${GREEN}" "The following changes will be made:"
-            echo "$filtered_output"
-        fi
-    else
-        print_status "${RED}" "Simulation showed potential issues:"
-        echo "$simulation_output" | grep -v "WARNING: in simulation mode"
-        default="N"
-    fi
-    
-    echo "${default}"
-}
 
 # Execute the stow operation
 execute_stow() {
@@ -190,8 +161,29 @@ main() {
     
     check_prerequisites
     
+    # Run simulation first and capture result
     local default
-    default=$(handle_simulation)
+    local sim_result
+    
+    print_status "${YELLOW}" "Simulating stow operation..."
+    if simulation_output=$(do_stow true 2>&1); then
+        # Filter out the simulation mode warning
+        filtered_output=$(echo "$simulation_output" | grep -v "WARNING: in simulation mode")
+        
+        if [[ -z "$filtered_output" ]]; then
+            print_status "${GREEN}" "All required links are already in place"
+            sim_result=$(stow --target="${HOME}" --dotfiles --verbose --dir="${CONFIG_DIR}" -n -v config 2>/dev/null | grep "would skip" || true)
+            [[ -n "$sim_result" ]] && echo "$sim_result"
+        else
+            print_status "${GREEN}" "The following changes will be made:"
+            echo "$filtered_output"
+        fi
+        default="Y"
+    else
+        print_status "${RED}" "Simulation showed potential issues:"
+        echo "$simulation_output" | grep -v "WARNING: in simulation mode"
+        default="N"
+    fi
     
     echo # Add a blank line for readability
     if get_user_confirmation "${default}"; then

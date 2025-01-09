@@ -8,6 +8,7 @@ set -euo pipefail
 
 # Initialize global variables
 readonly CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
 readonly YELLOW='\033[1;33m'
@@ -38,14 +39,26 @@ command_exists() {
 # Outputs:
 #   Simulation results to stdout
 simulate_stow() {
+    # Stow config files to home directory
     stow --target="${HOME}" --dotfiles --simulate --verbose --dir="${CONFIG_DIR}" config 2>&1
+    
+    # Stow binaries to XDG bin directory if bin directory exists
+    if [[ -d "${CONFIG_DIR}/bin" ]]; then
+        stow --target="${BIN_DIR}" --simulate --verbose --dir="${CONFIG_DIR}" bin 2>&1
+    fi
 }
 
 # Execute the actual stow operation
 # Returns:
 #   0 if stow successful, 1 otherwise
 perform_stow() {
+    # Stow config files to home directory
     stow --target="${HOME}" --dotfiles --verbose --dir="${CONFIG_DIR}" config
+    
+    # Stow binaries to XDG bin directory if bin directory exists
+    if [[ -d "${CONFIG_DIR}/bin" ]]; then
+        stow --target="${BIN_DIR}" --verbose --dir="${CONFIG_DIR}" bin
+    fi
 }
 
 # Get user confirmation for an action
@@ -68,6 +81,12 @@ check_prerequisites() {
     if ! command_exists stow; then
         print_status "${RED}" "stow is not installed. Please install it first."
         exit 1
+    fi
+    
+    # Ensure bin directory exists
+    if [[ ! -d "${BIN_DIR}" ]]; then
+        print_status "${YELLOW}" "Creating binary directory: ${BIN_DIR}"
+        mkdir -p "${BIN_DIR}"
     fi
 }
 

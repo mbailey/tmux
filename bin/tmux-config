@@ -64,14 +64,14 @@ do_stow() {
     local success=0
     case "${STOW_TYPE}" in
         config|all)
-            stow --target="${HOME}" $([[ "${simulate}" == "true" ]] && echo "--simulate") --dotfiles --verbose --dir="${CONFIG_DIR}" config 2>&1 || success=1
+            stow --target="${HOME}" ${simulate:+"--simulate"} --dotfiles --verbose --dir="${CONFIG_DIR}" config 2>&1 || success=1
             ;;
     esac
     
     case "${STOW_TYPE}" in
         exec|all)
             if [[ -d "${CONFIG_DIR}/bin" ]]; then
-                stow --target="${BIN_DIR}" $([[ "${simulate}" == "true" ]] && echo "--simulate") --verbose --dir="${CONFIG_DIR}" bin 2>&1 || success=1
+                stow --target="${BIN_DIR}" ${simulate:+"--simulate"} --verbose --dir="${CONFIG_DIR}" bin 2>&1 || success=1
             fi
             ;;
     esac

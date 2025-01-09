@@ -166,14 +166,13 @@ main() {
     local sim_result
     
     print_status "${YELLOW}" "Simulating stow operation..."
-    if simulation_output=$(do_stow true 2>&1); then
+    if simulation_output=$(STOW_DEBUG=2 do_stow true 2>&1); then
         # Filter out the simulation mode warning
-        filtered_output=$(echo "$simulation_output" | grep -v "WARNING: in simulation mode")
+        filtered_output=$(echo "$simulation_output" | grep -v "WARNING: in simulation mode" | grep -v "^$")
         
-        if [[ -z "$filtered_output" ]]; then
-            print_status "${GREEN}" "All required links are already in place"
-            sim_result=$(stow --target="${HOME}" --dotfiles --verbose --dir="${CONFIG_DIR}" -n -v config 2>/dev/null | grep "would skip" || true)
-            [[ -n "$sim_result" ]] && echo "$sim_result"
+        if echo "$filtered_output" | grep -q "LINK: would skip"; then
+            print_status "${GREEN}" "All required links are already in place:"
+            echo "$filtered_output"
         else
             print_status "${GREEN}" "The following changes will be made:"
             echo "$filtered_output"

@@ -109,24 +109,29 @@ check_prerequisites() {
 }
 
 # Run the stow simulation and handle the output
+# Returns:
+#   "Y" if simulation successful, "N" otherwise
 handle_simulation() {
     local simulation_output
-    local default
+    local filtered_output
+    local default="Y"
     
     print_status "${YELLOW}" "Simulating stow operation..."
     
-    if simulation_output=$(do_stow true); then
-        print_status "${GREEN}" "Simulation successful!"
-        if [[ -z "${simulation_output}" ]]; then
-            print_status "${YELLOW}" "All required links already exist - nothing to do"
+    if simulation_output=$(do_stow true 2>&1); then
+        # Filter out the simulation mode warning
+        filtered_output=$(echo "$simulation_output" | grep -v "WARNING: in simulation mode")
+        
+        if [[ -z "$filtered_output" ]]; then
+            print_status "${GREEN}" "All required links are already in place:"
+            stow --target="${HOME}" --dotfiles --verbose --dir="${CONFIG_DIR}" -n -v config 2>/dev/null | grep "would skip" || true
         else
-            print_status "${GREEN}" "Here's what will happen:"
-            echo "${simulation_output}"
+            print_status "${GREEN}" "The following changes will be made:"
+            echo "$filtered_output"
         fi
-        default="Y"
     else
         print_status "${RED}" "Simulation showed potential issues:"
-        echo "${simulation_output}"
+        echo "$simulation_output" | grep -v "WARNING: in simulation mode"
         default="N"
     fi
     
@@ -188,6 +193,7 @@ main() {
     local default
     default=$(handle_simulation)
     
+    echo # Add a blank line for readability
     if get_user_confirmation "${default}"; then
         execute_stow || exit 1
     else

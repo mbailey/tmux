@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -o nounset -o pipefail -o errexit
+
+# If we're in an SSH session, try to use the local system's clipboard
+if [[ -n "${SSH_CLIENT:-}" ]] || [[ -n "${SSH_TTY:-}" ]]; then
+    # When SSH'd in, try to use OSC 52 escape sequence to copy to local clipboard
+    # This works across SSH without requiring clipboard utilities on the remote host
+    buf=$(cat)
+    encoded=$(printf %s "$buf" | base64)
+    printf "\033]52;c;%s\007" "$encoded"
+else
+    # For local sessions, use native clipboard utilities
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        pbcopy
+    elif command -v wl-copy >/dev/null 2>&1; then
+        # Wayland
+        wl-copy
+    elif command -v xclip >/dev/null 2>&1; then
+        # X11
+        xclip -in -selection clipboard
+    else
+        # Fallback - just copy to tmux buffer
+        tmux load-buffer -
+    fi
+fi

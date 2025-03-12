@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -o nounset -o pipefail -o errexit
 
 # Get absolute path to script directory
 command -v realpath &> /dev/null || {
@@ -9,5 +10,5 @@ SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 DOCS_DIR="$(dirname "$SCRIPT_DIR")"/docs
 
-# Display the cheat sheet with a simple pager
-cat "$DOCS_DIR/cheat.md" | less -R
+# Display the cheat sheet directly (no pager to avoid display issues)
+cat "$DOCS_DIR/cheat.md"

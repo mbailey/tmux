@@ -10,5 +10,5 @@ SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 DOCS_DIR="$(dirname "$SCRIPT_DIR")"/docs
 
-# Display the cheat sheet directly (no pager to avoid display issues)
-cat "$DOCS_DIR/cheat.md"
+# Display the cheat sheet with less to keep it open until user presses 'q'
+cat "$DOCS_DIR/cheat.md" | less -R

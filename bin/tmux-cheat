@@ -10,5 +10,8 @@ SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 DOCS_DIR="$(dirname "$SCRIPT_DIR")"/docs
 
-# Display the cheat sheet with less to keep it open until user presses 'q'
-cat "$DOCS_DIR/cheat.md" | less -R
+# Display the cheat sheet with less, forcing it to stay in the terminal
+# -F: quit if content fits on one screen
+# -X: don't clear screen when exiting
+# -R: allow ANSI color escape sequences
+cat "$DOCS_DIR/cheat.md" | less -FXR

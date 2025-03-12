@@ -1,21 +1,27 @@
-# tmux cheat
+# TMUX CHEAT SHEET
+PREFIX KEY: Ctrl+b
 
-| Action | Shortcut |
-|--------|----------|
-| Prefix key | `Ctrl+b` |
-| Create new window | `Prefix + c` |
-| Split pane horizontally | `Prefix + "` |
-| Split pane vertically | `Prefix + %` |
-| Switch to window | `Prefix + [0-9]` |
-| Next window | `Prefix + n` |
-| Previous window | `Prefix + p` |
-| Switch pane | `Prefix + arrow key` |
-| Resize pane | `Prefix + Ctrl + arrow key` |
-| Detach session | `Prefix + d` |
-| List sessions | `Prefix + s` |
-| Rename window | `Prefix + ,` |
-| Enter copy mode | `Prefix + [` |
-| Paste buffer | `Prefix + ]` |
-| Search | `Prefix + /` |
-| Toggle zoom pane | `Prefix + z` |
-| Command prompt | `Prefix + :` |
+## WINDOWS
+c           Create new window       |  ,           Rename window
+[0-9]       Switch to window        |  n/p         Next/previous window
+w           List windows            |  f           Find window
+
+## PANES
+"           Split horizontally      |  %           Split vertically  
+arrows      Switch pane             |  Ctrl+arrows Resize pane
+z           Toggle zoom             |  x           Kill pane
+{/}         Swap pane               |  q           Show pane numbers
+
+## SESSIONS
+d           Detach session          |  s           List sessions
+$           Rename session          |  (/)         Prev/next session
+
+## COPY MODE (PREFIX + [)
+Space       Start selection         |  Enter       Copy selection
+/           Search forward          |  ?           Search backward
+n           Next search match       |  N           Previous match
+j/k         Down/up                 |  h/l         Left/right
+
+## OTHER
+?           Show key bindings       |  :           Command prompt
+t           Show time               |  ~           Show messages

@@ -1,21 +1,27 @@
 # TMUX CHEAT SHEET - PREFIX: Ctrl+b
 
 WINDOWS:
-  c  Create window    n/p  Next/prev window    ,  Rename window
-  w  List windows     f    Find window         0-9 Go to window
+  c  Create new       ,  Rename
+  w  List all         f  Find
+  n  Next             p  Previous
+  0-9 Go to number
 
 PANES:
-  "  Split horiz      %  Split vertical      ←↑→↓  Switch pane
-  z  Toggle zoom      x  Kill pane           C-←↑→↓ Resize pane
-  {  Swap left        }  Swap right          q  Show numbers
+  "  Split horiz      %  Split vertical
+  ←↑→↓  Switch        C-←↑→↓ Resize
+  z  Zoom toggle      x  Kill
+  {  Swap left        }  Swap right
+  q  Show numbers
 
 SESSIONS:
-  d  Detach           s  List sessions       $  Rename session
-  (  Previous sess    )  Next session        L  Last session
+  d  Detach           $  Rename
+  s  List all         L  Last
+  (  Previous         )  Next
 
 COPY MODE (PREFIX+[):
-  Space Select        Enter Copy             v  Select (vi)
-  /  Search fwd       ?  Search back         n/N Next/prev match
+  Space Start select  Enter Copy
+  /  Search forward   ?  Search back
+  n  Next match       N  Previous match
 
 OTHER:
-  ?  Show bindings    :  Command prompt      t  Show time
+  ?  Show this sheet  :  Command prompt

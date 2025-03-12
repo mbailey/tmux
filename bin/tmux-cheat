@@ -27,4 +27,4 @@ format_cheatsheet() {
 }
 
 # Display the cheat sheet with less
-format_cheatsheet "$(cat "$DOCS_DIR/cheat.md")" | less -FXR
+format_cheatsheet "$(cat "$DOCS_DIR/cheat.md")" | less -R +Gg

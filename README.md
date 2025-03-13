@@ -27,3 +27,7 @@ Supported programs:
 - vim/nvim
 - git
 - (add more by updating the mapping in the tmux-cheat script)
+
+## See also
+
+- [clipboard](https://github.com/tmux/tmux/wiki/Clipboard#quick-summary)

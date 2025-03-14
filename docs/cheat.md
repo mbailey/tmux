@@ -7,7 +7,7 @@ WINDOWS:
   0-9 Go to number
 
 PANES:
-  "  Split horiz      %  Split vertical
+  -  Split horiz      |  Split vertical
   ←↑→↓  Switch        C-←↑→↓ Resize
   z  Zoom toggle      x  Kill
   {  Swap left        }  Swap right

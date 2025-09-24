@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+# Bash completion for tmux-install
+
+_tmux_install() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    opts="--from-source --help -h"
+
+    if [[ ${cur} == -* ]] ; then
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+        return 0
+    fi
+}
+
+complete -F _tmux_install tmux-install

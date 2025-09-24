@@ -1,0 +1,47 @@
+# Smart tmux session manager
+# Creates session if it doesn't exist, attaches if it does
+tmux() {
+    # If no args or standard tmux commands, use original tmux
+    if [[ $# -eq 0 ]] || [[ "$1" =~ ^(ls|list-sessions|new-session|attach|detach|kill-session|kill-server|source|show|set|bind|unbind)$ ]]; then
+        command tmux "$@"
+        return
+    fi
+    
+    # If first arg doesn't start with -, assume it's a session name
+    if [[ "$1" != -* ]]; then
+        local session_name="$1"
+        shift  # Remove session name from args
+        
+        # Check if session exists
+        if command tmux has-session -t "$session_name" 2>/dev/null; then
+            # Attach to existing session
+            command tmux attach-session -t "$session_name" "$@"
+        else
+            # Create new session
+            command tmux new-session -s "$session_name" "$@"
+        fi
+    else
+        # Pass through to original tmux
+        command tmux "$@"
+    fi
+}
+
+# Completion function for tmux
+_tmux_smart_complete() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    
+    # If completing first argument and it doesn't start with -
+    if [[ ${COMP_CWORD} -eq 1 ]] && [[ "$cur" != -* ]]; then
+        # Get list of existing sessions
+        local sessions=$(command tmux list-sessions -F "#{session_name}" 2>/dev/null)
+        COMPREPLY=( $(compgen -W "$sessions" -- "$cur") )
+    else
+        # Fall back to default tmux completion if available
+        if type _tmux &>/dev/null; then
+            _tmux
+        fi
+    fi
+}
+
+# Register completion
+complete -F _tmux_smart_complete tmux

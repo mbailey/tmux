@@ -1,0 +1,4 @@
+alias t=tmux-dev-window
+alias ta='tmux attach'
+alias tn='tmux new -s $(ds)'
+alias tl='tmux ls'

@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Script to install tmux and configuration
+# Dependencies: tmux
+
+CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TMUX_CONFIG_SRC="${CONFIG_DIR}/config/dot-tmux.conf"
+TMUX_CONFIG_DEST="${HOME}/.tmux.conf"
+
+# Installation options
+FROM_SOURCE=false
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Print with color
+print_status() {
+    local color=$1
+    shift
+    printf "${color}%s${NC}\n" "$*"
+}
+
+# Check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Install tmux using the appropriate package manager
+install_tmux() {
+    if command_exists apt-get; then
+        sudo apt-get update && sudo apt-get install -y tmux
+    elif command_exists dnf; then
+        sudo dnf install -y tmux
+    elif command_exists yum; then
+        sudo yum install -y tmux
+    elif command_exists brew; then
+        brew install tmux
+    else
+        print_status "${RED}" "No supported package manager found. Please install tmux manually."
+        exit 1
+    fi
+}
+
+# Install tmux from source
+install_tmux_from_source() {
+    print_status "${YELLOW}" "Installing tmux from source..."
+    
+    # Install build dependencies
+    if command_exists apt-get; then
+        sudo apt-get update && sudo apt-get install -y libevent-dev ncurses-dev build-essential bison pkg-config
+    elif command_exists dnf; then
+        sudo dnf install -y libevent-devel ncurses-devel gcc make bison pkgconfig
+    elif command_exists yum; then
+        sudo yum install -y libevent-devel ncurses-devel gcc make bison pkgconfig
+    elif command_exists brew; then
+        brew install libevent ncurses pkg-config
+    else
+        print_status "${RED}" "No supported package manager found. Please install build dependencies manually."
+        exit 1
+    fi
+    
+    # Create temporary directory
+    TEMP_DIR=$(mktemp -d)
+    cd "${TEMP_DIR}"
+    
+    # Download and extract latest tmux source
+    print_status "${GREEN}" "Downloading tmux source..."
+    wget https://github.com/tmux/tmux/releases/download/3.4/tmux-3.4.tar.gz
+    tar -xzf tmux-3.4.tar.gz
+    cd tmux-3.4
+    
+    # Configure, compile and install
+    print_status "${GREEN}" "Configuring tmux..."
+    ./configure
+    
+    print_status "${GREEN}" "Compiling tmux..."
+    make
+    
+    print_status "${GREEN}" "Installing tmux..."
+    sudo make install
+    
+    # Clean up
+    cd /
+    rm -rf "${TEMP_DIR}"
+    
+    print_status "${GREEN}" "tmux installed from source successfully!"
+}
+
+# Parse command line arguments
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --from-source)
+                FROM_SOURCE=true
+                shift
+                ;;
+            -h|--help)
+                echo "Usage: $0 [OPTIONS]"
+                echo "Options:"
+                echo "  --from-source  Install tmux from source instead of package manager"
+                echo "  -h, --help     Show this help message"
+                exit 0
+                ;;
+            *)
+                print_status "${RED}" "Unknown option: $1"
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# Main installation process
+main() {
+    parse_args "$@"
+    # Check if tmux is installed
+    if ! command_exists tmux; then
+        print_status "${YELLOW}" "tmux is not installed. Installing..."
+        if [ "${FROM_SOURCE}" = true ]; then
+            install_tmux_from_source
+        else
+            install_tmux
+        fi
+    else
+        print_status "${GREEN}" "tmux is already installed"
+        if [ "${FROM_SOURCE}" = true ]; then
+            print_status "${YELLOW}" "Note: --from-source flag was provided but tmux is already installed"
+        fi
+    fi
+
+    # Backup existing config if it exists
+    if [ -f "${TMUX_CONFIG_DEST}" ]; then
+        print_status "${YELLOW}" "Backing up existing tmux config..."
+        mv "${TMUX_CONFIG_DEST}" "${TMUX_CONFIG_DEST}.backup"
+    fi
+
+    # Install config file
+    print_status "${GREEN}" "Installing tmux config..."
+    cp "${TMUX_CONFIG_SRC}" "${TMUX_CONFIG_DEST}"
+
+    print_status "${GREEN}" "tmux installation complete!"
+    print_status "${GREEN}" "You may need to restart your terminal for changes to take effect."
+}
+
+main "$@"

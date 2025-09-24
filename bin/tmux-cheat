@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -o nounset -o pipefail -o errexit
+
+# Get absolute path to script directory
+command -v realpath &>/dev/null || {
+  echo "Error: 'realpath' is required but not found. Please install 'coreutils' (e.g. 'brew install coreutils' on macOS)." >&2
+  exit 1
+}
+SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+DOCS_DIR="$(dirname "$SCRIPT_DIR")"/docs
+PUBLIC_DIR="${HOME}/public"
+
+# Get terminal width to determine display format
+TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
+
+# Mapping from command names to directory names
+declare -A program_mapping=(
+  ["nvim"]="neovim"
+  ["vim"]="vim"
+  ["git"]="git"
+  ["tmux"]="tmux"
+  # Add more mappings as needed
+)
+
+# Get the current pane command
+get_current_command() {
+  tmux display-message -p '#{pane_current_command}' 2>/dev/null || echo "tmux"
+}
+
+# Find the appropriate cheat sheet
+find_cheatsheet() {
+  local command=$(get_current_command)
+  local command_lower=$(echo "$command" | tr '[:upper:]' '[:lower:]')
+  local program_dir="${program_mapping[$command_lower]:-}"
+  local cheatsheet_path=""
+
+  # Check if we have a mapping for this command
+  if [[ -n "$program_dir" && "$program_dir" != "tmux" ]]; then
+    cheatsheet_path="${PUBLIC_DIR}/${program_dir}/docs/cheat.md"
+    if [[ -f "$cheatsheet_path" ]]; then
+      echo "$cheatsheet_path"
+      return
+    fi
+  fi
+
+  # Default to tmux cheat sheet
+  echo "$DOCS_DIR/cheat.md"
+}
+
+# Get the appropriate cheat sheet
+CHEATSHEET_PATH=$(find_cheatsheet)
+
+# Display the cheat sheet with less
+less -R +Gg "$CHEATSHEET_PATH"

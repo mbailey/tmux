@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+#
+# tmux-github-stats - Display GitHub repository statistics in tmux status bar
+#
+# Usage: tmux-github-stats [path]
+#
+# Returns: ⭐ stars ⑂ forks 🐛 issues 🔀 pull_requests
+
+set -euo pipefail
+
+# Get the directory path (default to current directory)
+DIR="${1:-$(pwd)}"
+
+# Check if it's a git repository
+if ! git -C "$DIR" rev-parse --git-dir &>/dev/null; then
+    exit 0
+fi
+
+# Get the GitHub remote URL
+REMOTE_URL=$(git -C "$DIR" config --get remote.origin.url 2>/dev/null || echo "")
+
+# Extract owner/repo from various URL formats
+if [[ -z "$REMOTE_URL" ]]; then
+    exit 0
+fi
+
+# Convert SSH URLs to HTTPS format and extract owner/repo
+if [[ "$REMOTE_URL" =~ git@github\.com:(.+)\.git$ ]] || [[ "$REMOTE_URL" =~ git@github\.com:(.+)$ ]]; then
+    REPO_PATH="${BASH_REMATCH[1]}"
+elif [[ "$REMOTE_URL" =~ https://github\.com/(.+)\.git$ ]] || [[ "$REMOTE_URL" =~ https://github\.com/(.+)$ ]]; then
+    REPO_PATH="${BASH_REMATCH[1]}"
+else
+    exit 0
+fi
+
+# Remove trailing .git if present
+REPO_PATH="${REPO_PATH%.git}"
+
+# Cache directory
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/tmux-github-stats"
+mkdir -p "$CACHE_DIR"
+CACHE_FILE="$CACHE_DIR/${REPO_PATH//\//_}.json"
+
+# Check if cache is fresh (less than 5 minutes old)
+if [[ -f "$CACHE_FILE" ]] && [[ $(find "$CACHE_FILE" -mmin -5 2>/dev/null) ]]; then
+    DATA=$(cat "$CACHE_FILE")
+else
+    # Fetch fresh data from GitHub API
+    # Try authenticated request first if token is available
+    if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+        DATA=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$REPO_PATH" 2>/dev/null || echo "{}")
+    else
+        DATA=$(curl -s "https://api.github.com/repos/$REPO_PATH" 2>/dev/null || echo "{}")
+    fi
+    
+    # Cache the response if valid
+    if [[ "$DATA" != "{}" ]] && [[ -n "$DATA" ]]; then
+        echo "$DATA" > "$CACHE_FILE"
+    elif [[ -f "$CACHE_FILE" ]]; then
+        # Use stale cache if API call failed
+        DATA=$(cat "$CACHE_FILE")
+    else
+        exit 0
+    fi
+fi
+
+# Extract stats using jq if available, otherwise use grep/sed
+if command -v jq &>/dev/null; then
+    STARS=$(echo "$DATA" | jq -r '.stargazers_count // 0')
+    FORKS=$(echo "$DATA" | jq -r '.forks_count // 0')
+    ISSUES=$(echo "$DATA" | jq -r '.open_issues_count // 0')
+else
+    # Fallback to grep/sed parsing
+    STARS=$(echo "$DATA" | grep -o '"stargazers_count":[0-9]*' | sed 's/.*://')
+    FORKS=$(echo "$DATA" | grep -o '"forks_count":[0-9]*' | sed 's/.*://')
+    ISSUES=$(echo "$DATA" | grep -o '"open_issues_count":[0-9]*' | sed 's/.*://')
+    
+    # Default to 0 if not found
+    STARS=${STARS:-0}
+    FORKS=${FORKS:-0}
+    ISSUES=${ISSUES:-0}
+fi
+
+# Format numbers (add k suffix for thousands)
+format_number() {
+    local num=$1
+    if [[ $num -ge 1000 ]]; then
+        echo "$((num / 1000))k"
+    else
+        echo "$num"
+    fi
+}
+
+# Format the output with icons
+OUTPUT=""
+[[ $STARS -gt 0 ]] && OUTPUT+="⭐$(format_number $STARS) "
+[[ $FORKS -gt 0 ]] && OUTPUT+="⑂$(format_number $FORKS) "
+[[ $ISSUES -gt 0 ]] && OUTPUT+="🐛$(format_number $ISSUES) "
+
+# Trim trailing space
+OUTPUT="${OUTPUT% }"
+
+echo "$OUTPUT"

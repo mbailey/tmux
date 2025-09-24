@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# tmux-dev-window - Create a 3-pane development layout in tmux
+# Layout: editor (top-left), ai (top-right), shell (bottom)
+
+show_help() {
+    cat <<EOF
+Usage: tmux-dev-window [OPTIONS] [PATH]
+
+Create a tmux development window with 3-pane layout.
+
+Arguments:
+  PATH                Target directory or file (default: current directory)
+
+Options:
+  -w, --window NAME   Window name (default: directory name)
+  -a, --ai CMD        AI command to run (default: see below)
+  -h, --help          Show this help message
+
+Default AI Command:
+  1. If -a flag is provided, use that
+  2. Else if \$TMUX_DEV_AI_CMD is set, use that
+  3. Else if 'agents' command exists, use 'agents summon'
+  4. Else if \$AI_COMMAND is set, use that (legacy)
+  5. Else use 'claude'
+
+Environment:
+  TMUX_DEV_AI_CMD     Default AI command when not specified via -a
+  EDITOR              Editor command (default: nvim --listen /tmp/nvim-cora)
+
+Examples:
+  tmux-dev-window                    # Current directory
+  tmux-dev-window ~/project          # Specific directory
+  tmux-dev-window -a "agents cora"   # Custom AI command
+  tmux-dev-window -w backend .       # Custom window name
+EOF
+}
+
+# Parse arguments
+WINDOW_NAME=""
+AI_CMD=""
+TARGET_PATH=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -w|--window)
+            WINDOW_NAME="$2"
+            shift 2
+            ;;
+        -a|--ai)
+            AI_CMD="$2"
+            shift 2
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            echo "Use -h for help" >&2
+            exit 1
+            ;;
+        *)
+            TARGET_PATH="$1"
+            shift
+            ;;
+    esac
+done
+
+# Resolve target path
+if [[ -z "$TARGET_PATH" ]]; then
+    TARGET_DIR="$PWD"
+else
+    # Resolve symlinks and get absolute path
+    TARGET_PATH="$(realpath "$TARGET_PATH")"
+    if [[ -f "$TARGET_PATH" ]]; then
+        # If it's a file, use its directory
+        TARGET_DIR="$(dirname "$TARGET_PATH")"
+    else
+        TARGET_DIR="$TARGET_PATH"
+    fi
+fi
+
+# Set defaults
+WINDOW_NAME="${WINDOW_NAME:-${TARGET_DIR##*/}}"
+
+# Determine AI command default
+if [[ -z "$AI_CMD" ]]; then
+    if [[ -n "${TMUX_DEV_AI_CMD:-}" ]]; then
+        AI_CMD="$TMUX_DEV_AI_CMD"
+    elif command -v agents &>/dev/null; then
+        AI_CMD="agents summon"
+    elif [[ -n "${AI_COMMAND:-}" ]]; then
+        AI_CMD="$AI_COMMAND"
+    else
+        AI_CMD="claude"
+    fi
+fi
+
+EDITOR_CMD="${EDITOR:-nvim --listen /tmp/nvim-cora}"
+
+# Get tmux settings
+PANE_BASE=$(tmux show-options -gv pane-base-index)
+
+# Check if window exists
+if tmux list-windows -F '#{window_name}' | grep -q "^${WINDOW_NAME}$"; then
+    echo "Window '$WINDOW_NAME' already exists, switching to it"
+    tmux select-window -t "$WINDOW_NAME"
+    exit 0
+fi
+
+# Create new window
+tmux new-window -n "$WINDOW_NAME" -c "$TARGET_DIR"
+tmux select-window -t "$WINDOW_NAME"
+
+# Split horizontally for bottom shell (75% top, 25% bottom)
+tmux split-window -v -p 25 -c "$TARGET_DIR"
+
+# Select top pane and split vertically for AI (50/50)
+tmux select-pane -t "$WINDOW_NAME.$PANE_BASE"
+tmux split-window -h -p 50 -c "$TARGET_DIR"
+
+# Name panes
+tmux select-pane -t "$WINDOW_NAME.$PANE_BASE" -T "editor"
+tmux select-pane -t "$WINDOW_NAME.$((PANE_BASE + 1))" -T "ai"
+tmux select-pane -t "$WINDOW_NAME.$((PANE_BASE + 2))" -T "shell"
+
+# Send commands
+tmux send-keys -t "$WINDOW_NAME.$PANE_BASE" "$EDITOR_CMD ." Enter
+
+# Select AI pane first to ensure it opens there
+tmux select-pane -t "$WINDOW_NAME.$((PANE_BASE + 1))"
+tmux send-keys -t "$WINDOW_NAME.$((PANE_BASE + 1))" "$AI_CMD" Enter
+
+# Focus editor pane
+tmux select-pane -t "$WINDOW_NAME.$PANE_BASE"
+
+echo "Created development window: $WINDOW_NAME"

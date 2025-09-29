@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+# Detect system appearance (light/dark) across different platforms
+# Returns: "light" or "dark"
+
+detect_theme() {
+    local theme="dark"  # Default to dark
+
+    case "$(uname -s)" in
+        Darwin)
+            # macOS: Use AppleInterfaceStyle
+            if defaults read -g AppleInterfaceStyle &>/dev/null; then
+                theme="dark"
+            else
+                theme="light"
+            fi
+            ;;
+
+        Linux)
+            # Check if we're in WSL
+            if grep -qi microsoft /proc/version 2>/dev/null; then
+                # WSL: Try to read Windows theme via registry
+                # This requires Windows Terminal or other methods to pass theme info
+                # For now, check environment variable that could be set
+                if [[ -n "$WINDOWS_THEME" ]]; then
+                    theme="$WINDOWS_THEME"
+                elif command -v powershell.exe &>/dev/null; then
+                    # Try to query Windows registry from WSL
+                    local win_theme=$(powershell.exe -Command '
+                        $path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+                        $light = Get-ItemProperty -Path $path -Name "AppsUseLightTheme" -ErrorAction SilentlyContinue
+                        if ($light.AppsUseLightTheme -eq 1) { "light" } else { "dark" }
+                    ' 2>/dev/null | tr -d '\r\n')
+                    [[ "$win_theme" == "light" ]] && theme="light" || theme="dark"
+                fi
+            else
+                # Regular Linux: Check various desktop environments
+
+                # GNOME/GTK (Ubuntu, Fedora with GNOME)
+                if command -v gsettings &>/dev/null; then
+                    local gtk_theme=$(gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null | tr -d "'")
+                    local color_scheme=$(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | tr -d "'")
+
+                    if [[ "$color_scheme" == "prefer-dark" ]] || [[ "$gtk_theme" == *"-dark"* ]] || [[ "$gtk_theme" == *"Dark"* ]]; then
+                        theme="dark"
+                    elif [[ "$color_scheme" == "prefer-light" ]] || [[ "$gtk_theme" == *"-light"* ]] || [[ "$gtk_theme" == *"Light"* ]]; then
+                        theme="light"
+                    fi
+                fi
+
+                # KDE Plasma
+                if [[ -z "$theme" ]] && command -v kreadconfig5 &>/dev/null; then
+                    local kde_theme=$(kreadconfig5 --file kdeglobals --group General --key ColorScheme 2>/dev/null)
+                    [[ "$kde_theme" == *"Dark"* ]] && theme="dark" || theme="light"
+                fi
+
+                # XFCE
+                if [[ -z "$theme" ]] && command -v xfconf-query &>/dev/null; then
+                    local xfce_theme=$(xfconf-query -c xsettings -p /Net/ThemeName 2>/dev/null)
+                    [[ "$xfce_theme" == *"dark"* ]] || [[ "$xfce_theme" == *"Dark"* ]] && theme="dark" || theme="light"
+                fi
+            fi
+            ;;
+
+        *)
+            # Unknown system, check environment variable fallback
+            [[ "$TERMINAL_THEME" == "light" ]] && theme="light" || theme="dark"
+            ;;
+    esac
+
+    echo "$theme"
+}
+
+# If sourced, don't execute
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    detect_theme
+fi

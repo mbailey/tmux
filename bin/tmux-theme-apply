@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+# Apply theme to tmux based on system appearance
+# Can be called manually or automatically
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+THEME_DIR="$(cd "$SCRIPT_DIR/../config/themes" && pwd)"
+
+# Check for manual override first
+if [[ -f ~/.terminal-theme ]]; then
+    theme=$(cat ~/.terminal-theme)
+else
+    # Detect current theme
+    theme=$("$SCRIPT_DIR/tmux-theme-detect")
+fi
+
+# Validate theme value
+if [[ "$theme" != "light" && "$theme" != "dark" ]]; then
+    theme="dark"  # Default fallback
+fi
+
+# Apply theme
+if [[ "$theme" == "light" ]]; then
+    theme_file="$THEME_DIR/light.conf"
+else
+    theme_file="$THEME_DIR/dark.conf"
+fi
+
+# Check if tmux is running
+if tmux info &>/dev/null; then
+    # Source the theme file in all sessions
+    tmux source-file "$theme_file"
+
+    # Also store current theme for new sessions
+    echo "source-file $theme_file" > ~/.tmux.theme
+
+    # Display notification
+    tmux display-message "Theme switched to $theme mode"
+else
+    # Just store for next session
+    echo "source-file $theme_file" > ~/.tmux.theme
+fi
+
+echo "Applied $theme theme"

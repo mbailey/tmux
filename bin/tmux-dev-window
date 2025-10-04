@@ -126,6 +126,9 @@ tmux select-pane -t "$WINDOW_NAME.$PANE_BASE" -T "editor"
 tmux select-pane -t "$WINDOW_NAME.$((PANE_BASE + 1))" -T "ai"
 tmux select-pane -t "$WINDOW_NAME.$((PANE_BASE + 2))" -T "shell"
 
+# Wait for shells to initialize
+sleep 1
+
 # Send commands
 tmux send-keys -t "$WINDOW_NAME.$PANE_BASE" "$EDITOR_CMD ." Enter
 

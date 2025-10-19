@@ -5,7 +5,7 @@ set -euo pipefail
 # Layout: editor (top-left), ai (top-right), shell (bottom)
 
 show_help() {
-    cat <<EOF
+  cat <<EOF
 Usage: tmux-dev-window [OPTIONS] [PATH]
 
 Create a tmux development window with 3-pane layout.
@@ -43,43 +43,43 @@ AI_CMD=""
 TARGET_PATH=""
 
 while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -h|--help)
-            show_help
-            exit 0
-            ;;
-        -w|--window)
-            WINDOW_NAME="$2"
-            shift 2
-            ;;
-        -a|--ai)
-            AI_CMD="$2"
-            shift 2
-            ;;
-        -*)
-            echo "Unknown option: $1" >&2
-            echo "Use -h for help" >&2
-            exit 1
-            ;;
-        *)
-            TARGET_PATH="$1"
-            shift
-            ;;
-    esac
+  case "$1" in
+  -h | --help)
+    show_help
+    exit 0
+    ;;
+  -w | --window)
+    WINDOW_NAME="$2"
+    shift 2
+    ;;
+  -a | --ai)
+    AI_CMD="$2"
+    shift 2
+    ;;
+  -*)
+    echo "Unknown option: $1" >&2
+    echo "Use -h for help" >&2
+    exit 1
+    ;;
+  *)
+    TARGET_PATH="$1"
+    shift
+    ;;
+  esac
 done
 
 # Resolve target path
 if [[ -z "$TARGET_PATH" ]]; then
-    TARGET_DIR="$PWD"
+  TARGET_DIR="$PWD"
 else
-    # Resolve symlinks and get absolute path
-    TARGET_PATH="$(realpath "$TARGET_PATH")"
-    if [[ -f "$TARGET_PATH" ]]; then
-        # If it's a file, use its directory
-        TARGET_DIR="$(dirname "$TARGET_PATH")"
-    else
-        TARGET_DIR="$TARGET_PATH"
-    fi
+  # Resolve symlinks and get absolute path
+  TARGET_PATH="$(realpath "$TARGET_PATH")"
+  if [[ -f "$TARGET_PATH" ]]; then
+    # If it's a file, use its directory
+    TARGET_DIR="$(dirname "$TARGET_PATH")"
+  else
+    TARGET_DIR="$TARGET_PATH"
+  fi
 fi
 
 # Set defaults
@@ -87,15 +87,15 @@ WINDOW_NAME="${WINDOW_NAME:-${TARGET_DIR##*/}}"
 
 # Determine AI command default
 if [[ -z "$AI_CMD" ]]; then
-    if [[ -n "${TMUX_DEV_AI_CMD:-}" ]]; then
-        AI_CMD="$TMUX_DEV_AI_CMD"
-    elif command -v agents &>/dev/null; then
-        AI_CMD="agents summon"
-    elif [[ -n "${AI_COMMAND:-}" ]]; then
-        AI_CMD="$AI_COMMAND"
-    else
-        AI_CMD="claude"
-    fi
+  if [[ -n "${TMUX_DEV_AI_CMD:-}" ]]; then
+    AI_CMD="$TMUX_DEV_AI_CMD"
+  elif command -v agents &>/dev/null; then
+    AI_CMD="agents summon"
+  elif [[ -n "${AI_COMMAND:-}" ]]; then
+    AI_CMD="$AI_COMMAND"
+  else
+    AI_CMD="claude"
+  fi
 fi
 
 EDITOR_CMD="${EDITOR:-nvim --listen /tmp/nvim-cora}"
@@ -103,11 +103,16 @@ EDITOR_CMD="${EDITOR:-nvim --listen /tmp/nvim-cora}"
 # Get tmux settings
 PANE_BASE=$(tmux show-options -gv pane-base-index)
 
+# Define pane identifiers
+EDITOR_PANE="$PANE_BASE"
+AI_PANE="$((PANE_BASE + 1))"
+SHELL_PANE="$((PANE_BASE + 2))"
+
 # Check if window exists
 if tmux list-windows -F '#{window_name}' | grep -q "^${WINDOW_NAME}$"; then
-    echo "Window '$WINDOW_NAME' already exists, switching to it"
-    tmux select-window -t "$WINDOW_NAME"
-    exit 0
+  echo "Window '$WINDOW_NAME' already exists, switching to it"
+  tmux select-window -t "$WINDOW_NAME"
+  exit 0
 fi
 
 # Create new window
@@ -118,25 +123,26 @@ tmux select-window -t "$WINDOW_NAME"
 tmux split-window -v -p 25 -c "$TARGET_DIR"
 
 # Select top pane and split vertically for AI (50/50)
-tmux select-pane -t "$WINDOW_NAME.$PANE_BASE"
+tmux select-pane -t "$WINDOW_NAME.$EDITOR_PANE"
 tmux split-window -h -p 50 -c "$TARGET_DIR"
 
 # Name panes
-tmux select-pane -t "$WINDOW_NAME.$PANE_BASE" -T "editor"
-tmux select-pane -t "$WINDOW_NAME.$((PANE_BASE + 1))" -T "ai"
-tmux select-pane -t "$WINDOW_NAME.$((PANE_BASE + 2))" -T "shell"
+tmux select-pane -t "$WINDOW_NAME.$EDITOR_PANE" -T "editor"
+tmux select-pane -t "$WINDOW_NAME.$AI_PANE" -T "ai"
+tmux select-pane -t "$WINDOW_NAME.$SHELL_PANE" -T "shell"
 
 # Wait for shells to initialize
 sleep 1
 
 # Send commands
-tmux send-keys -t "$WINDOW_NAME.$PANE_BASE" "$EDITOR_CMD ." Enter
+tmux send-keys -t "$WINDOW_NAME.$EDITOR_PANE" "$EDITOR_CMD ." Enter
 
 # Select AI pane first to ensure it opens there
-tmux select-pane -t "$WINDOW_NAME.$((PANE_BASE + 1))"
-tmux send-keys -t "$WINDOW_NAME.$((PANE_BASE + 1))" "$AI_CMD" Enter
+tmux select-pane -t "$WINDOW_NAME.$AI_PANE"
+tmux send-keys -t "$WINDOW_NAME.$AI_PANE" "$AI_CMD" Enter
 
-# Focus editor pane
-tmux select-pane -t "$WINDOW_NAME.$PANE_BASE"
+# Focus AI pane
+tmux select-pane -t "$WINDOW_NAME.$AI_PANE"
 
 echo "Created development window: $WINDOW_NAME"
+

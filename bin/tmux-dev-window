@@ -82,8 +82,22 @@ else
   fi
 fi
 
+# Function to truncate window names (like show tool pattern)
+truncate_window_name() {
+  local name="$1"
+  local max_len=25
+
+  if [[ ${#name} -le $max_len ]]; then
+    echo "$name"
+    return
+  fi
+
+  # Truncate and use ~ as indicator (avoid dots for tmux target compatibility)
+  echo "${name:0:$((max_len - 1))}~"
+}
+
 # Set defaults
-WINDOW_NAME="${WINDOW_NAME:-${TARGET_DIR##*/}}"
+WINDOW_NAME="${WINDOW_NAME:-$(truncate_window_name "${TARGET_DIR##*/}")}"
 
 # Determine AI command default
 if [[ -z "$AI_CMD" ]]; then

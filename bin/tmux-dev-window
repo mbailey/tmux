@@ -114,6 +114,13 @@ fi
 
 EDITOR_CMD="${EDITOR:-nvim --listen /tmp/nvim-cora}"
 
+# Ensure tmux server is running
+if ! tmux info &>/dev/null; then
+  # Start a detached tmux server
+  tmux new-session -d -s _init
+  tmux kill-session -t _init
+fi
+
 # Get tmux settings
 PANE_BASE=$(tmux show-options -gv pane-base-index)
 

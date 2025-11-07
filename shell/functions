@@ -25,23 +25,3 @@
 #         command tmux "$@"
 #     fi
 # }
-
-# Completion function for tmux
-_tmux_smart_complete() {
-    local cur="${COMP_WORDS[COMP_CWORD]}"
-    
-    # If completing first argument and it doesn't start with -
-    if [[ ${COMP_CWORD} -eq 1 ]] && [[ "$cur" != -* ]]; then
-        # Get list of existing sessions
-        local sessions=$(command tmux list-sessions -F "#{session_name}" 2>/dev/null)
-        COMPREPLY=( $(compgen -W "$sessions" -- "$cur") )
-    else
-        # Fall back to default tmux completion if available
-        if type _tmux &>/dev/null; then
-            _tmux
-        fi
-    fi
-}
-
-# Register completion
-complete -F _tmux_smart_complete tmux

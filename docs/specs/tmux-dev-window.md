@@ -262,7 +262,7 @@ fi
 - Recognizes common project structures (packages/PROJECT, src/PROJECT)
 - Falls back to git root or directory name
 - Examples:
-  - `/code/mt-public/packages/tmux/bin/script` → `tmux`
+  - `/code/mt-public/tmux/bin/script` → `tmux`
   - `/projects/myapp/src/components/` → `myapp`
 
 ### Name Sanitization

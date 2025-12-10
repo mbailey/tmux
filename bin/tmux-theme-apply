@@ -3,8 +3,10 @@
 # Apply theme to tmux based on system appearance
 # Can be called manually or automatically
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-THEME_DIR="$(cd "$SCRIPT_DIR/../config/themes" && pwd)"
+# Resolve symlinks to find actual script location (works with metool symlinks)
+SCRIPT_REAL="$(realpath "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname "$SCRIPT_REAL")"
+THEME_DIR="$SCRIPT_DIR/../config/themes"
 
 # Check for manual override first
 if [[ -f ~/.terminal-theme ]]; then

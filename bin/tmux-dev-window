@@ -16,6 +16,8 @@ Arguments:
 Options:
   -w, --window NAME   Window name (default: directory name)
   -a, --ai CMD        AI command to run (default: see below)
+  -t, --taskmaster    Enable Taskmaster Console pane (default: auto-detect)
+  -T, --no-taskmaster Disable Taskmaster Console pane
   -h, --help          Show this help message
 
 Default AI Command:
@@ -27,6 +29,7 @@ Default AI Command:
 
 Environment:
   TMUX_DEV_AI_CMD     Default AI command when not specified via -a
+  TMUX_DEV_TMC        Enable TMC pane (set to 1 or 'true' to enable)
   EDITOR              Editor command (default: nvim --listen /tmp/nvim-cora)
 
 Examples:
@@ -41,6 +44,7 @@ EOF
 WINDOW_NAME=""
 AI_CMD=""
 TARGET_PATH=""
+TMC_FLAG=""  # Empty means auto-detect, "yes" means force on, "no" means force off
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -55,6 +59,14 @@ while [[ $# -gt 0 ]]; do
   -a | --ai)
     AI_CMD="$2"
     shift 2
+    ;;
+  -t | --taskmaster)
+    TMC_FLAG="yes"
+    shift
+    ;;
+  -T | --no-taskmaster)
+    TMC_FLAG="no"
+    shift
     ;;
   -*)
     echo "Unknown option: $1" >&2
@@ -114,6 +126,19 @@ fi
 
 EDITOR_CMD="${EDITOR:-nvim --listen /tmp/nvim-cora}"
 
+# Determine if TMC pane should be enabled
+ENABLE_TMC="no"
+if [[ "$TMC_FLAG" == "yes" ]]; then
+  ENABLE_TMC="yes"
+elif [[ "$TMC_FLAG" == "no" ]]; then
+  ENABLE_TMC="no"
+elif [[ "${TMUX_DEV_TMC:-}" == "1" ]] || [[ "${TMUX_DEV_TMC:-}" == "true" ]]; then
+  ENABLE_TMC="yes"
+elif command -v tmc &>/dev/null; then
+  # Auto-detect: enable if tmc command is available
+  ENABLE_TMC="yes"
+fi
+
 # Ensure tmux server is running
 if ! tmux info &>/dev/null; then
   # Start a detached tmux server
@@ -128,6 +153,7 @@ PANE_BASE=$(tmux show-options -gv pane-base-index)
 EDITOR_PANE="$PANE_BASE"
 AI_PANE="$((PANE_BASE + 1))"
 SHELL_PANE="$((PANE_BASE + 2))"
+TMC_PANE="$((PANE_BASE + 3))"
 
 # Check if window exists
 if tmux list-windows -F '#{window_name}' | grep -q "^${WINDOW_NAME}$"; then
@@ -140,8 +166,23 @@ fi
 tmux new-window -n "$WINDOW_NAME" -c "$TARGET_DIR"
 tmux select-window -t "$WINDOW_NAME"
 
-# Split horizontally for bottom shell (75% top, 25% bottom)
-tmux split-window -v -p 25 -c "$TARGET_DIR"
+# Calculate bottom split percentage based on whether TMC is enabled
+# With TMC: top 60%, shell 20%, tmc 20%
+# Without TMC: top 75%, shell 25%
+if [[ "$ENABLE_TMC" == "yes" ]]; then
+  BOTTOM_SPLIT=40  # Shell + TMC together = 40%
+else
+  BOTTOM_SPLIT=25  # Shell only = 25%
+fi
+
+# Split horizontally for bottom panes
+tmux split-window -v -p "$BOTTOM_SPLIT" -c "$TARGET_DIR"
+
+# If TMC is enabled, split the bottom for shell and TMC
+if [[ "$ENABLE_TMC" == "yes" ]]; then
+  # We're in the bottom pane, split it (shell stays top 50%, tmc bottom 50%)
+  tmux split-window -v -p 50 -c "$TARGET_DIR"
+fi
 
 # Select top pane and split vertically for AI (50/50)
 tmux select-pane -t "$WINDOW_NAME.$EDITOR_PANE"
@@ -151,6 +192,9 @@ tmux split-window -h -p 50 -c "$TARGET_DIR"
 tmux select-pane -t "$WINDOW_NAME.$EDITOR_PANE" -T "editor"
 tmux select-pane -t "$WINDOW_NAME.$AI_PANE" -T "ai"
 tmux select-pane -t "$WINDOW_NAME.$SHELL_PANE" -T "shell"
+if [[ "$ENABLE_TMC" == "yes" ]]; then
+  tmux select-pane -t "$WINDOW_NAME.$TMC_PANE" -T "tmc"
+fi
 
 # Wait for shells to initialize
 sleep 1
@@ -162,8 +206,16 @@ tmux send-keys -t "$WINDOW_NAME.$EDITOR_PANE" "$EDITOR_CMD ." Enter
 tmux select-pane -t "$WINDOW_NAME.$AI_PANE"
 tmux send-keys -t "$WINDOW_NAME.$AI_PANE" "$AI_CMD" Enter
 
+# Start TMC if enabled
+if [[ "$ENABLE_TMC" == "yes" ]]; then
+  tmux send-keys -t "$WINDOW_NAME.$TMC_PANE" "tmc" Enter
+fi
+
 # Focus AI pane
 tmux select-pane -t "$WINDOW_NAME.$AI_PANE"
 
 echo "Created development window: $WINDOW_NAME"
+if [[ "$ENABLE_TMC" == "yes" ]]; then
+  echo "  (with Taskmaster Console)"
+fi
 

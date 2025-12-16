@@ -49,6 +49,8 @@ tmux-dev-window [OPTIONS] [PATH]
 
 - `-w, --window NAME` - Window name (default: directory name)
 - `-a, --ai CMD` - AI command to run (see Default AI Command below)
+- `-t, --taskmaster` - Enable Taskmaster Console pane
+- `-T, --no-taskmaster` - Disable Taskmaster Console pane
 - `-h, --help` - Show help message
 
 ### Default AI Command
@@ -60,12 +62,28 @@ The AI command is determined in this order:
 4. Else if `$AI_COMMAND` is set, use that (legacy)
 5. Else use `claude`
 
+### Taskmaster Console
+
+The TMC pane is enabled when:
+1. If `-t` flag is provided, enable it
+2. If `-T` flag is provided, disable it
+3. If `$TMUX_DEV_TMC` is set to `1` or `true`, enable it
+4. If `tmc` command is available, auto-enable it
+
 ## Layout
 
-The script creates a fixed three-pane layout:
+The script creates a development layout:
+
+### Standard (3-pane)
 - **Editor** (top-left): 50% of top area
 - **AI Assistant** (top-right): 50% of top area
 - **Shell** (bottom): Full width, 25% of window height
+
+### With Taskmaster (4-pane)
+- **Editor** (top-left): 50% of top area (60% height)
+- **AI Assistant** (top-right): 50% of top area (60% height)
+- **Shell** (middle): Full width, 20% of window height
+- **TMC** (bottom): Full width, 20% of window height
 
 ## Window Naming
 
@@ -87,6 +105,7 @@ If a window with the same name already exists, the script will switch to it inst
 Customize default behavior:
 
 - `TMUX_DEV_AI_CMD` - Default AI command when not specified via -a flag
+- `TMUX_DEV_TMC` - Enable TMC pane (set to `1` or `true` to enable)
 - `EDITOR` - Editor command (defaults to 'nvim --listen /tmp/nvim-cora')
 - `AI_COMMAND` - Legacy fallback for AI command (use TMUX_DEV_AI_CMD instead)
 
@@ -114,6 +133,16 @@ tmux-dev-window
 
 # Combine options
 tmux-dev-window -w backend -a "agents summon cora" ~/projects
+
+# Enable Taskmaster Console
+tmux-dev-window -t .
+
+# Disable Taskmaster Console (even if tmc is available)
+tmux-dev-window -T .
+
+# Enable TMC via environment
+export TMUX_DEV_TMC=1
+tmux-dev-window
 ```
 
 ## Compatibility

@@ -1,0 +1,192 @@
+#!/usr/bin/env bash
+# tmux-rename-windows - Intelligently rename tmux windows based on context
+#
+# Usage: tmux-rename-windows [options]
+#
+# Options:
+#   -s SESSION    Target specific session (default: current session)
+#   -n            Dry run - show what would be renamed without actually renaming
+#   -f            Force - rename even if window has custom name
+#   -v            Verbose output
+#   -h            Show this help
+
+set -euo pipefail
+
+# Default options
+DRY_RUN=false
+FORCE=false
+VERBOSE=false
+SESSION=""
+
+# Common command names that indicate default/automatic naming
+DEFAULT_COMMANDS=(bash zsh fish sh node python python3 python3.12 ruby perl)
+
+usage() {
+    sed -n '2,/^$/s/^# \?//p' "$0"
+    exit 0
+}
+
+log() {
+    if [[ "$VERBOSE" == "true" ]]; then
+        echo "$@" >&2
+    fi
+}
+
+is_default_name() {
+    local name="$1"
+    for cmd in "${DEFAULT_COMMANDS[@]}"; do
+        if [[ "$name" == "$cmd" || "$name" == "${cmd}"* ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+get_git_repo_name() {
+    local path="$1"
+    if [[ -d "$path/.git" ]] || git -C "$path" rev-parse --git-dir &>/dev/null; then
+        basename "$(git -C "$path" rev-parse --show-toplevel 2>/dev/null || echo "")"
+    fi
+}
+
+get_common_path() {
+    local paths=("$@")
+    local common=""
+
+    # If only one path, use its basename
+    if [[ ${#paths[@]} -eq 1 ]]; then
+        basename "${paths[0]}"
+        return
+    fi
+
+    # Find common parent directory
+    common="${paths[0]}"
+    for path in "${paths[@]:1}"; do
+        while [[ "$path" != "$common"* ]]; do
+            common="$(dirname "$common")"
+            if [[ "$common" == "/" ]]; then
+                echo "root"
+                return
+            fi
+        done
+    done
+
+    basename "$common"
+}
+
+suggest_window_name() {
+    local session="$1"
+    local window="$2"
+
+    # Get all pane paths for this window
+    local pane_paths=()
+    while IFS= read -r path; do
+        pane_paths+=("$path")
+    done < <(tmux list-panes -t "${session}:${window}" -F '#{pane_current_path}')
+
+    # Check if all panes are in the same git repo
+    local repo_name=""
+    local first_repo=""
+    local all_same_repo=true
+
+    for path in "${pane_paths[@]}"; do
+        local current_repo
+        current_repo="$(get_git_repo_name "$path")"
+        if [[ -z "$first_repo" ]]; then
+            first_repo="$current_repo"
+        elif [[ "$current_repo" != "$first_repo" ]]; then
+            all_same_repo=false
+            break
+        fi
+    done
+
+    if [[ "$all_same_repo" == "true" && -n "$first_repo" ]]; then
+        repo_name="$first_repo"
+    fi
+
+    # Use repo name if available, otherwise use common path
+    local suggested_name
+    if [[ -n "$repo_name" ]]; then
+        suggested_name="$repo_name"
+    else
+        suggested_name="$(get_common_path "${pane_paths[@]}")"
+    fi
+
+    # Truncate to 20 characters
+    if [[ ${#suggested_name} -gt 20 ]]; then
+        suggested_name="${suggested_name:0:17}..."
+    fi
+
+    echo "$suggested_name"
+}
+
+main() {
+    # Parse arguments
+    while getopts "s:nfvh" opt; do
+        case $opt in
+            s) SESSION="$OPTARG" ;;
+            n) DRY_RUN=true ;;
+            f) FORCE=true ;;
+            v) VERBOSE=true ;;
+            h) usage ;;
+            *) usage ;;
+        esac
+    done
+
+    # Get current session if not specified
+    if [[ -z "$SESSION" ]]; then
+        SESSION="$(tmux display-message -p '#S')"
+    fi
+
+    log "Processing session: $SESSION"
+
+    # Get all windows in session
+    declare -A window_names
+    declare -A seen_names
+
+    while IFS=: read -r window_index current_name; do
+        log "Checking window ${window_index}: ${current_name}"
+
+        # Skip if not default name and not forcing
+        if [[ "$FORCE" != "true" ]] && ! is_default_name "$current_name"; then
+            log "  Skipping - custom name detected"
+            continue
+        fi
+
+        # Check if automatic-rename is on for this window
+        local auto_rename
+        auto_rename="$(tmux show-window-options -t "${SESSION}:${window_index}" -v automatic-rename 2>/dev/null || echo "off")"
+        if [[ "$auto_rename" == "on" ]]; then
+            log "  Skipping - automatic-rename is on"
+            continue
+        fi
+
+        # Suggest new name
+        local suggested_name
+        suggested_name="$(suggest_window_name "$SESSION" "$window_index")"
+
+        # Handle duplicates
+        local final_name="$suggested_name"
+        local counter=2
+        while [[ -n "${seen_names[$final_name]:-}" ]]; do
+            final_name="${suggested_name}-${counter}"
+            ((counter++))
+        done
+        seen_names[$final_name]=1
+
+        # Store the rename operation
+        if [[ "$current_name" != "$final_name" ]]; then
+            window_names[$window_index]="$final_name"
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "Would rename: ${SESSION}:${window_index} \"${current_name}\" -> \"${final_name}\""
+            else
+                tmux rename-window -t "${SESSION}:${window_index}" "$final_name"
+                echo "Renamed: ${SESSION}:${window_index} \"${current_name}\" -> \"${final_name}\""
+            fi
+        else
+            log "  No change needed - already named correctly"
+        fi
+    done < <(tmux list-windows -t "$SESSION" -F '#{window_index}:#{window_name}')
+}
+
+main "$@"

@@ -2,12 +2,8 @@
 
 set -euo pipefail
 
-# Script to install tmux and configuration
-# Dependencies: tmux
-
-CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TMUX_CONFIG_SRC="${CONFIG_DIR}/config/dot-tmux.conf"
-TMUX_CONFIG_DEST="${HOME}/.tmux.conf"
+# Script to install tmux binary
+# Configuration is handled separately by metool: mt package install tmux
 
 # Installation options
 FROM_SOURCE=false
@@ -126,24 +122,15 @@ main() {
             install_tmux
         fi
     else
-        print_status "${GREEN}" "tmux is already installed"
+        print_status "${GREEN}" "tmux is already installed ($(tmux -V))"
         if [ "${FROM_SOURCE}" = true ]; then
             print_status "${YELLOW}" "Note: --from-source flag was provided but tmux is already installed"
+            print_status "${YELLOW}" "Uninstall first if you want to reinstall from source"
         fi
     fi
 
-    # Backup existing config if it exists
-    if [ -f "${TMUX_CONFIG_DEST}" ]; then
-        print_status "${YELLOW}" "Backing up existing tmux config..."
-        mv "${TMUX_CONFIG_DEST}" "${TMUX_CONFIG_DEST}.backup"
-    fi
-
-    # Install config file
-    print_status "${GREEN}" "Installing tmux config..."
-    cp "${TMUX_CONFIG_SRC}" "${TMUX_CONFIG_DEST}"
-
-    print_status "${GREEN}" "tmux installation complete!"
-    print_status "${GREEN}" "You may need to restart your terminal for changes to take effect."
+    print_status "${GREEN}" "tmux binary installation complete!"
+    print_status "${GREEN}" "For configuration, run: mt package install tmux"
 }
 
 main "$@"

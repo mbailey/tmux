@@ -43,4 +43,5 @@ else
     echo "source-file $theme_file" > ~/.tmux.theme
 fi
 
-echo "Applied $theme theme"
+# Silent - output was causing "press enter" prompt in tmux
+# echo "Applied $theme theme"

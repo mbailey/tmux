@@ -44,7 +44,7 @@ EOF
 WINDOW_NAME=""
 AI_CMD=""
 TARGET_PATH=""
-TMC_FLAG=""  # Empty means auto-detect, "yes" means force on, "no" means force off
+TMC_FLAG="" # Empty means auto-detect, "yes" means force on, "no" means force off
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -116,7 +116,7 @@ if [[ -z "$AI_CMD" ]]; then
   if [[ -n "${TMUX_DEV_AI_CMD:-}" ]]; then
     AI_CMD="$TMUX_DEV_AI_CMD"
   elif command -v agents &>/dev/null; then
-    AI_CMD="agents summon"
+    AI_CMD="agents summon --no-tmux"
   elif [[ -n "${AI_COMMAND:-}" ]]; then
     AI_CMD="$AI_COMMAND"
   else
@@ -170,9 +170,9 @@ tmux select-window -t "$WINDOW_NAME"
 # With TMC: top 60%, shell 20%, tmc 20%
 # Without TMC: top 75%, shell 25%
 if [[ "$ENABLE_TMC" == "yes" ]]; then
-  BOTTOM_SPLIT=40  # Shell + TMC together = 40%
+  BOTTOM_SPLIT=40 # Shell + TMC together = 40%
 else
-  BOTTOM_SPLIT=25  # Shell only = 25%
+  BOTTOM_SPLIT=25 # Shell only = 25%
 fi
 
 # Split horizontally for bottom panes
@@ -218,4 +218,3 @@ echo "Created development window: $WINDOW_NAME"
 if [[ "$ENABLE_TMC" == "yes" ]]; then
   echo "  (with Taskmaster Console)"
 fi
-

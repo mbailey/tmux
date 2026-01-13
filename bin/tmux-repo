@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# tmux-repo - Create/attach to tmux session named after current git repo
+#
+# Usage: tmux-repo [session-name]
+#
+# If no session name given, uses the current git repo name.
+# Always changes to the repo root directory.
+
+set -euo pipefail
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "Not in a git repository" >&2
+    exit 1
+}
+
+repo_name="${1:-$(basename "$repo_root")}"
+
+# If already in tmux, switch to session (create if needed)
+if [[ -n "${TMUX:-}" ]]; then
+    if ! tmux has-session -t "$repo_name" 2>/dev/null; then
+        tmux new-session -ds "$repo_name" -c "$repo_root"
+    fi
+    exec tmux switch-client -t "$repo_name"
+fi
+
+exec tmux new-session -As "$repo_name" -c "$repo_root"

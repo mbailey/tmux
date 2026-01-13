@@ -301,6 +301,26 @@ tmux switch -t project
 4. **Capture and verify output** - Check command results
 5. **Respect window names** - Don't rename custom-named windows without permission
 
+### Sending Input to Claude Code Instances
+
+When sending input to another Claude Code session via tmux, text and Enter must be sent as separate commands:
+
+```bash
+# WRONG - text and Enter in same call doesn't reliably submit
+tmux send-keys -t pane "message" Enter
+
+# RIGHT - send text with -l (literal) flag, then Enter separately
+tmux send-keys -t pane -l "message"
+tmux send-keys -t pane Enter
+```
+
+This is how `agents minion send` works internally. The `-l` flag ensures the message text is sent literally without interpretation. Always verify the message was received by checking the pane content after sending.
+
+**Prefer using `agents minion send`** when available, as it handles this correctly:
+```bash
+agents minion send m-worker "your message here"
+```
+
 ### For Users
 
 1. **Name windows intentionally** - Custom names won't be auto-renamed

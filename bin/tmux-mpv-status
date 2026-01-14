@@ -1,0 +1,84 @@
+#!/bin/bash
+# tmux-mpv-status - Show current MPV track and time for tmux status bar
+# With countdown to next track and color coding
+
+SOCKET="/tmp/mpv-mfp-socket"
+
+if [ ! -S "$SOCKET" ]; then
+    echo ""
+    exit 0
+fi
+
+# Get all data in single query for speed
+DATA=$(echo '{ "command": ["get_property", "chapter-metadata"] }
+{ "command": ["get_property", "chapter"] }
+{ "command": ["get_property", "time-pos"] }
+{ "command": ["get_property", "chapter-list"] }' | socat - "$SOCKET" 2>/dev/null)
+
+if [ -z "$DATA" ]; then
+    echo ""
+    exit 0
+fi
+
+# Parse JSON with jq
+TITLE=$(echo "$DATA" | head -1 | jq -r '.data.title // empty' 2>/dev/null)
+ARTIST=$(echo "$DATA" | head -1 | jq -r '.data.performer // empty' 2>/dev/null)
+CHAPTER=$(echo "$DATA" | sed -n '2p' | jq -r '.data // 0' 2>/dev/null)
+POS=$(echo "$DATA" | sed -n '3p' | jq -r '.data // 0' 2>/dev/null)
+
+# Get next chapter time from chapter-list
+CHAPTERS=$(echo "$DATA" | sed -n '4p' | jq -r '.data' 2>/dev/null)
+NEXT_CHAPTER=$((CHAPTER + 1))
+NEXT_TIME=$(echo "$CHAPTERS" | jq -r ".[$NEXT_CHAPTER].time // empty" 2>/dev/null)
+
+if [ -z "$TITLE" ]; then
+    echo ""
+    exit 0
+fi
+
+# Format time as MM:SS
+format_time() {
+    local secs=${1%.*}
+    if [ "$secs" -lt 0 ]; then secs=0; fi
+    printf "%d:%02d" $((secs/60)) $((secs%60))
+}
+
+POS_FMT=$(format_time "$POS")
+POS_INT=${POS%.*}
+
+# Track number is 0-indexed from MPV, add 1 for display
+TRACK_NUM=$((CHAPTER + 1))
+
+# Truncate artist and title if needed
+if [ ${#ARTIST} -gt 12 ]; then
+    ARTIST="${ARTIST:0:10}.."
+fi
+if [ ${#TITLE} -gt 15 ]; then
+    TITLE="${TITLE:0:13}.."
+fi
+
+# Calculate time until next track
+if [ -n "$NEXT_TIME" ]; then
+    NEXT_INT=${NEXT_TIME%.*}
+    REMAINING=$((NEXT_INT - POS_INT))
+    REMAINING_FMT=$(format_time "$REMAINING")
+
+    # Color code based on remaining time
+    if [ "$REMAINING" -lt 10 ]; then
+        # Red for <10 seconds
+        COLOR="#[fg=red,bold]"
+        RESET="#[fg=default,nobold]"
+    elif [ "$REMAINING" -lt 30 ]; then
+        # Yellow for <30 seconds
+        COLOR="#[fg=yellow]"
+        RESET="#[fg=default]"
+    else
+        COLOR=""
+        RESET=""
+    fi
+
+    echo "$TRACK_NUM. $ARTIST - $TITLE $POS_FMT ${COLOR}(-${REMAINING_FMT})${RESET} ♪"
+else
+    # Last track, no next chapter
+    echo "$TRACK_NUM. $ARTIST - $TITLE $POS_FMT ♪"
+fi

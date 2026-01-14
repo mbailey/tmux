@@ -1,18 +1,20 @@
 #!/bin/bash
 # tmux-mpv-status - Show current MPV track and time for tmux status bar
-# With countdown to next track and color coding
+# Supports both chapter-based (MFP) and regular track playback
 
-SOCKET="/tmp/mpv-mfp-socket"
+SOCKET="/tmp/voicemode-mpv.sock"
 
 if [ ! -S "$SOCKET" ]; then
     echo ""
     exit 0
 fi
 
-# Get all data in single query for speed
-DATA=$(echo '{ "command": ["get_property", "chapter-metadata"] }
-{ "command": ["get_property", "chapter"] }
+# Get metadata and position
+DATA=$(echo '{ "command": ["get_property", "metadata"] }
 { "command": ["get_property", "time-pos"] }
+{ "command": ["get_property", "duration"] }
+{ "command": ["get_property", "chapter-metadata"] }
+{ "command": ["get_property", "chapter"] }
 { "command": ["get_property", "chapter-list"] }' | socat - "$SOCKET" 2>/dev/null)
 
 if [ -z "$DATA" ]; then
@@ -20,16 +22,30 @@ if [ -z "$DATA" ]; then
     exit 0
 fi
 
-# Parse JSON with jq
-TITLE=$(echo "$DATA" | head -1 | jq -r '.data.title // empty' 2>/dev/null)
-ARTIST=$(echo "$DATA" | head -1 | jq -r '.data.performer // empty' 2>/dev/null)
-CHAPTER=$(echo "$DATA" | sed -n '2p' | jq -r '.data // 0' 2>/dev/null)
-POS=$(echo "$DATA" | sed -n '3p' | jq -r '.data // 0' 2>/dev/null)
+# Parse track metadata
+TITLE=$(echo "$DATA" | sed -n '1p' | jq -r '.data.TITLE // .data.title // empty' 2>/dev/null)
+ARTIST=$(echo "$DATA" | sed -n '1p' | jq -r '.data.ARTIST // .data.artist // empty' 2>/dev/null)
+POS=$(echo "$DATA" | sed -n '2p' | jq -r '.data // 0' 2>/dev/null)
+DURATION=$(echo "$DATA" | sed -n '3p' | jq -r '.data // 0' 2>/dev/null)
 
-# Get next chapter time from chapter-list
-CHAPTERS=$(echo "$DATA" | sed -n '4p' | jq -r '.data' 2>/dev/null)
-NEXT_CHAPTER=$((CHAPTER + 1))
-NEXT_TIME=$(echo "$CHAPTERS" | jq -r ".[$NEXT_CHAPTER].time // empty" 2>/dev/null)
+# Check for chapter metadata (MFP-style)
+CHAPTER_TITLE=$(echo "$DATA" | sed -n '4p' | jq -r '.data.title // empty' 2>/dev/null)
+CHAPTER_ARTIST=$(echo "$DATA" | sed -n '4p' | jq -r '.data.performer // empty' 2>/dev/null)
+CHAPTER=$(echo "$DATA" | sed -n '5p' | jq -r '.data // empty' 2>/dev/null)
+CHAPTERS=$(echo "$DATA" | sed -n '6p' | jq -r '.data' 2>/dev/null)
+
+# Use chapter info if available, otherwise track metadata
+if [ -n "$CHAPTER_TITLE" ]; then
+    TITLE="$CHAPTER_TITLE"
+    ARTIST="$CHAPTER_ARTIST"
+    TRACK_NUM=$((CHAPTER + 1))
+    # Get next chapter time for countdown
+    NEXT_CHAPTER=$((CHAPTER + 1))
+    NEXT_TIME=$(echo "$CHAPTERS" | jq -r ".[$NEXT_CHAPTER].time // empty" 2>/dev/null)
+else
+    TRACK_NUM=""
+    NEXT_TIME=""
+fi
 
 if [ -z "$TITLE" ]; then
     echo ""
@@ -46,30 +62,42 @@ format_time() {
 POS_FMT=$(format_time "$POS")
 POS_INT=${POS%.*}
 
-# Track number is 0-indexed from MPV, add 1 for display
-TRACK_NUM=$((CHAPTER + 1))
-
 # Truncate artist and title if needed
-if [ ${#ARTIST} -gt 12 ]; then
-    ARTIST="${ARTIST:0:10}.."
+if [ ${#ARTIST} -gt 15 ]; then
+    ARTIST="${ARTIST:0:13}.."
 fi
-if [ ${#TITLE} -gt 15 ]; then
-    TITLE="${TITLE:0:13}.."
+if [ ${#TITLE} -gt 20 ]; then
+    TITLE="${TITLE:0:18}.."
 fi
 
-# Calculate time until next track
+# Build output
+if [ -n "$TRACK_NUM" ]; then
+    PREFIX="$TRACK_NUM. "
+else
+    PREFIX=""
+fi
+
+# Calculate remaining time (chapter or track)
 if [ -n "$NEXT_TIME" ]; then
+    # Chapter-based countdown
     NEXT_INT=${NEXT_TIME%.*}
     REMAINING=$((NEXT_INT - POS_INT))
+elif [ -n "$DURATION" ] && [ "$DURATION" != "0" ]; then
+    # Track duration countdown
+    DUR_INT=${DURATION%.*}
+    REMAINING=$((DUR_INT - POS_INT))
+else
+    REMAINING=""
+fi
+
+if [ -n "$REMAINING" ]; then
     REMAINING_FMT=$(format_time "$REMAINING")
 
     # Color code based on remaining time
     if [ "$REMAINING" -lt 10 ]; then
-        # Red for <10 seconds
         COLOR="#[fg=red,bold]"
         RESET="#[fg=default,nobold]"
     elif [ "$REMAINING" -lt 30 ]; then
-        # Yellow for <30 seconds
         COLOR="#[fg=yellow]"
         RESET="#[fg=default]"
     else
@@ -77,8 +105,7 @@ if [ -n "$NEXT_TIME" ]; then
         RESET=""
     fi
 
-    echo "$TRACK_NUM. $ARTIST - $TITLE $POS_FMT ${COLOR}(-${REMAINING_FMT})${RESET} ♪"
+    echo "${PREFIX}${ARTIST} - ${TITLE} ${POS_FMT} ${COLOR}(-${REMAINING_FMT})${RESET} ♪"
 else
-    # Last track, no next chapter
-    echo "$TRACK_NUM. $ARTIST - $TITLE $POS_FMT ♪"
+    echo "${PREFIX}${ARTIST} - ${TITLE} ${POS_FMT} ♪"
 fi

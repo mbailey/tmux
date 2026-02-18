@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# tmux-rename-windows - Intelligently rename tmux windows based on context
+# tmux-rename - Intelligently rename tmux windows based on context
 #
-# Usage: tmux-rename-windows [options]
+# Usage: tmux-rename [options]
 #
 # Options:
 #   -s SESSION    Target specific session (default: current session)

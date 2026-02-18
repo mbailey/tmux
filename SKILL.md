@@ -50,25 +50,25 @@ When using `tmux-dev-window`, the standard pane layout is:
 
 ### Window Management
 
-#### `tmux-rename-windows`
+#### `tmux-rename`
 
-Intelligently rename tmux windows based on project context.
+Intelligently rename tmux windows based on project context. (Previously called `tmux-rename-windows`.)
 
 ```bash
 # Rename windows in current session (dry-run)
-tmux-rename-windows -n
+tmux-rename -n
 
 # Actually rename windows
-tmux-rename-windows
+tmux-rename
 
 # Target specific session
-tmux-rename-windows -s session-name
+tmux-rename -s session-name
 
 # Force rename even custom names
-tmux-rename-windows -f
+tmux-rename -f
 
 # Verbose output
-tmux-rename-windows -v
+tmux-rename -v
 ```
 
 **Behavior:**
@@ -257,13 +257,13 @@ mt install tmux
 
 ```bash
 # Check what would be renamed (dry-run)
-tmux-rename-windows -n
+tmux-rename -n
 
 # Apply the renames
-tmux-rename-windows
+tmux-rename
 
 # Rename specific session
-tmux-rename-windows -s work
+tmux-rename -s work
 ```
 
 ### Set Up Development Session
@@ -326,7 +326,7 @@ agents minion send m-worker "your message here"
 1. **Name windows intentionally** - Custom names won't be auto-renamed
 2. **Use standard layouts** - Consistent pane positions improve workflow
 3. **Enable automatic-rename selectively** - For windows that should update automatically
-4. **Run `tmux-rename-windows` periodically** - Keep window names synchronized with projects
+4. **Run `tmux-rename` periodically** - Keep window names synchronized with projects
 
 ## Troubleshooting
 
@@ -335,7 +335,7 @@ agents minion send m-worker "your message here"
 **Check:**
 1. Does window have automatic-rename enabled? (`tmux show-window-options automatic-rename`)
 2. Is window name custom (not a default command name)?
-3. Run with verbose flag to see reasoning: `tmux-rename-windows -n -v`
+3. Run with verbose flag to see reasoning: `tmux-rename -n -v`
 
 ### Pane Commands Going to Wrong Location
 

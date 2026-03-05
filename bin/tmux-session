@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+# tmux-session - Unified tmux session management
+#
+# Consolidates tmux-repo, tmux-auto-connect, and tmux-dev-window into
+# a single command with mode flags.
+#
+# Alias: t
+
+set -o nounset -o pipefail -o errexit
+
+# --- Shared functions ---
+
+show_help() {
+  cat <<'EOF'
+Usage: tmux-session [OPTIONS] [NAME|PATH]
+
+Unified tmux session management.
+
+Modes:
+  (default)          Create or switch to a session (repo name, arg, or "main")
+  --first-only       Attach only if no clients are attached (login use)
+  --dev              Create dev window layout (delegates to tmux-dev-window)
+  --list             List sessions with attached client counts
+
+Options:
+  -h, --help         Show this help message
+
+Default mode:
+  tmux-session               Detect git repo, create/switch to that session
+  tmux-session myproject     Create/switch to "myproject" session
+
+First-only mode (for terminal startup):
+  tmux-session --first-only          Attach to "main" if no clients attached
+  tmux-session --first-only dev      Attach to "dev" if no clients attached
+
+Dev mode (passes through to tmux-dev-window):
+  tmux-session --dev                 Create dev layout in current session
+  tmux-session --dev ~/project       Create dev layout for project
+
+List mode:
+  tmux-session --list                Show sessions with client counts
+EOF
+}
+
+detect_session_name() {
+  local repo_root
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || true
+
+  if [[ -n "$repo_root" ]]; then
+    basename "$repo_root"
+  else
+    echo "main"
+  fi
+}
+
+detect_work_dir() {
+  local repo_root
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || true
+  echo "${repo_root:-$HOME}"
+}
+
+session_exists() {
+  local name="$1"
+  tmux has-session -t "=$name" 2>/dev/null
+}
+
+count_attached_clients() {
+  local name="$1"
+  tmux list-clients -t "=$name" 2>/dev/null | wc -l | tr -d ' '
+}
+
+# --- Modes ---
+
+mode_default() {
+  local session_name="${1:-}"
+  local work_dir
+
+  if [[ -z "$session_name" ]]; then
+    session_name=$(detect_session_name)
+    work_dir=$(detect_work_dir)
+  else
+    work_dir="${PWD}"
+  fi
+
+  # Inside tmux: switch client
+  if [[ -n "${TMUX:-}" ]]; then
+    if ! session_exists "$session_name"; then
+      tmux new-session -ds "$session_name" -c "$work_dir"
+    fi
+    exec tmux switch-client -t "=$session_name"
+  fi
+
+  # Outside tmux: create or attach
+  exec tmux new-session -As "$session_name" -c "$work_dir"
+}
+
+mode_first_only() {
+  local session_name="${1:-main}"
+
+  # Already in tmux
+  if [[ -n "${TMUX:-}" ]]; then
+    exec bash -l
+  fi
+
+  if session_exists "$session_name"; then
+    local attached
+    attached=$(count_attached_clients "$session_name")
+
+    if [[ "$attached" -eq 0 ]]; then
+      exec tmux attach-session -t "=$session_name"
+    else
+      # Someone already attached, start bare shell
+      exec bash -l
+    fi
+  else
+    # Session doesn't exist, create it
+    exec tmux new-session -s "$session_name"
+  fi
+}
+
+mode_dev() {
+  if ! command -v tmux-dev-window &>/dev/null; then
+    echo "Error: tmux-dev-window not found in PATH" >&2
+    exit 1
+  fi
+  exec tmux-dev-window "$@"
+}
+
+mode_list() {
+  if ! tmux info &>/dev/null 2>&1; then
+    echo "No tmux server running."
+    exit 0
+  fi
+
+  printf "%-20s  %s\n" "SESSION" "CLIENTS"
+  printf "%-20s  %s\n" "-------" "-------"
+  tmux list-sessions -F '#{session_name}' 2>/dev/null | while read -r name; do
+    local clients
+    clients=$(count_attached_clients "$name")
+    printf "%-20s  %s\n" "$name" "$clients"
+  done
+}
+
+# --- Dispatch ---
+
+case "${1:-}" in
+  --first-only) shift; mode_first_only "$@" ;;
+  --dev)        shift; mode_dev "$@" ;;
+  --list)       mode_list ;;
+  --help|-h)    show_help ;;
+  *)            mode_default "$@" ;;
+esac

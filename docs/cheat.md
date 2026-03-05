@@ -1,32 +1,52 @@
 # TMUX CHEAT SHEET - PREFIX: Ctrl+b
 
-WINDOWS:
-c Create
-, Rename
-& Kill
-w List all
-f Find
-n Next
-p Previous
-0-9 Go to number
+## SESSIONS
 
-PANES:
+d    Detach
+$    Rename
+s    List all
+L    Last session (toggle)
+(    Previous session
+)    Next session
 
-- Split horiz | Split vertical
-  ←↑→↓ Switch C-←↑→↓ Resize
-  z Zoom toggle x Kill
-  { Swap left } Swap right
-  q Show numbers
+## WINDOWS
 
-SESSIONS:
-d Detach $ Rename
-s List all L Last
-( Previous ) Next
+c    Create
+,    Rename
+&    Kill
+w    List all
+f    Find
+n    Next
+p    Previous
+l    Last window (toggle)
+0-9  Go to number
 
-COPY MODE (PREFIX+[):
-Space Start select Enter Copy
-/ Search forward ? Search back
-n Next match N Previous match
+## PANES
 
-OTHER:
-? Show this sheet : Command prompt
+-      Split horizontal
+|      Split vertical
+←↑→↓   Switch pane
+C-←↑→↓ Resize pane
+z      Zoom toggle
+x      Kill
+{      Swap left
+}      Swap right
+q      Show numbers
+;      Last pane (toggle)
+
+## COPY MODE (PREFIX + [)
+
+Space  Start selection
+Enter  Copy selection
+/      Search forward
+?      Search backward
+n      Next match
+N      Previous match
+
+## OTHER
+
+r    Reload config
+/    This cheat sheet
+T    Toggle light/dark theme
+?    List all keybindings
+:    Command prompt

@@ -28,6 +28,7 @@ Options:
 Default mode:
   tmux-session               Detect git repo, create/switch to that session
   tmux-session myproject     Create/switch to "myproject" session
+  tmux-session ~/Code/repo   Create/switch to "repo" session in that directory
 
 First-only mode (for terminal startup):
   tmux-session --first-only          Attach to "main" if no clients attached
@@ -76,9 +77,27 @@ mode_default() {
   local work_dir
 
   if [[ -z "$session_name" ]]; then
+    # No arg: detect from git repo or fall back to "main"
     session_name=$(detect_session_name)
     work_dir=$(detect_work_dir)
+  elif [[ -d "$session_name" || -f "$session_name" ]]; then
+    # Arg is a path: resolve to absolute, use parent dir if file
+    local target_path
+    target_path=$(cd "$(dirname "$session_name")" && pwd)
+    [[ -d "$session_name" ]] && target_path=$(cd "$session_name" && pwd)
+
+    # If inside a git repo, use repo root as work dir and repo name as session
+    local repo_root
+    repo_root=$(git -C "$target_path" rev-parse --show-toplevel 2>/dev/null) || true
+    if [[ -n "$repo_root" ]]; then
+      work_dir="$repo_root"
+      session_name=$(basename "$repo_root")
+    else
+      work_dir="$target_path"
+      session_name=$(basename "$target_path")
+    fi
   else
+    # Arg is a plain session name
     work_dir="${PWD}"
   fi
 

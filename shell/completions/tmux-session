@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+# Bash completion for tmux-session (and alias 't')
+
+_tmux_session() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    opts="--first-only --dev --list --help"
+
+    # Complete flags when current word starts with -
+    if [[ ${cur} == -* ]] ; then
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+        return 0
+    fi
+
+    # Get existing tmux session names
+    local sessions
+    sessions="$(tmux list-sessions -F '#{session_name}' 2>/dev/null)"
+
+    if [[ -z "${cur}" ]]; then
+        # No characters typed yet: show only existing session names
+        COMPREPLY=( $(compgen -W "${sessions}" -- ${cur}) )
+    else
+        # At least one character typed: show matching sessions AND directories
+        COMPREPLY=( $(compgen -W "${sessions}" -- ${cur}) )
+        COMPREPLY+=( $(compgen -d -- ${cur}) )
+    fi
+
+    return 0
+}
+
+complete -F _tmux_session tmux-session
+complete -F _tmux_session t

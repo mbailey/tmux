@@ -234,6 +234,7 @@ Progressive disclosure documentation in `docs/`:
 - `tmux-mcp.md` - MCP server setup and AI integration guide
 - `tmux-mcp-ai.md` - Best practices for AI agents using tmux MCP
 - `claude-code-interaction.md` - Sending input to Claude Code sessions (paste handler, bracketed-paste race)
+- `teammate-pane-layout.md` - Cascading leader + teammate pane pattern for multi-agent workflows (inspired by Claude Code)
 - `tmux-dev-window.md` - Development window layout documentation
 - `theme-switching.md` - Appearance-based theme switching
 - `cheat.md` - Quick reference for tmux key bindings

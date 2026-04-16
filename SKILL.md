@@ -95,16 +95,28 @@ tmux-dev-window -s session-name
 
 See `docs/tmux-dev-window.md` for detailed documentation.
 
-#### `tmux-auto-connect`
+#### `tmux-session` (alias: `t`)
 
-Automatically connect to or create a tmux session.
+Unified session management -- create, switch, link, and list sessions.
 
 ```bash
-# Auto-connect to default session
-tmux-auto-connect
+# Create/switch to session (detects git repo name)
+t                         # from a git repo directory
+t myproject               # by name
+t ~/Code/repo             # by path
 
-# Connect to specific session
-tmux-auto-connect session-name
+# Linked session (independent window views)
+t --link                  # creates projectname-2 linked to current
+t --link myproject        # link to specific session
+
+# List sessions with client counts
+t --list
+
+# Development layout
+t --dev                   # create dev window in current session
+
+# First-only attach (for terminal startup)
+t --first-only            # attach to "main" only if no clients attached
 ```
 
 ### Theme Management
@@ -282,14 +294,34 @@ tmux-dev-window
 
 ```bash
 # Auto-connect to session (creates if needed)
-tmux-auto-connect work
+t work
 
 # List all sessions
 tmux ls
 
 # Switch to specific session
-tmux switch -t project
+t project
 ```
+
+### Opening a Session in a Second Terminal
+
+To view different windows of the same session from two terminals, use linked sessions:
+
+```bash
+# From the second terminal, in the project directory:
+t --link
+
+# This creates a grouped session (e.g., taskmaster-2) linked to taskmaster.
+# Both terminals share the same windows but can independently select
+# which window is active. Ctrl+B N/P in each terminal navigates independently.
+
+# To switch between the original and linked session:
+t taskmaster      # switch to original
+t taskmaster-2    # switch to linked copy
+```
+
+Linked sessions auto-number: if `taskmaster-2` exists, it creates `taskmaster-3`, etc.
+The base session must already exist -- create it first with `t` if needed.
 
 ## Best Practices
 

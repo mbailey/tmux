@@ -233,6 +233,7 @@ Progressive disclosure documentation in `docs/`:
 - `session-window-pane-management.md` - Comprehensive tmux command reference
 - `tmux-mcp.md` - MCP server setup and AI integration guide
 - `tmux-mcp-ai.md` - Best practices for AI agents using tmux MCP
+- `claude-code-interaction.md` - Sending input to Claude Code sessions (paste handler, bracketed-paste race)
 - `tmux-dev-window.md` - Development window layout documentation
 - `theme-switching.md` - Appearance-based theme switching
 - `cheat.md` - Quick reference for tmux key bindings
@@ -353,43 +354,8 @@ This is how `agents minion send` works internally. The `-l` flag ensures the mes
 agents minion send m-worker "your message here"
 ```
 
-#### Multi-line Messages: The Bracketed-Paste Gotcha
-
-**Problem:** Sending a multi-line message to a Claude Code TUI via `tmux
-send-keys` does NOT auto-submit, even with `Enter` sent separately.
-
-**What happens:** Claude Code treats multi-line text as a bracketed paste.
-The message appears in the prompt as `[Pasted text #1 +N lines]` and waits
-for the user to manually press Enter in the TUI. A `tmux`-injected Enter
-arriving during the paste sequence is consumed as part of the paste, not
-as a submit.
-
-**Observed behaviour:**
-```bash
-tmux send-keys -t tmux:0.0 -l "$multi_line_msg"   # pastes the block
-tmux send-keys -t tmux:0.0 Enter                  # does NOT submit
-# Message sits in the prompt until a human presses Enter in the TUI.
-```
-
-**Workarounds:**
-
-1. **Single-line only** (simplest): Join your message into one line before
-   sending. `\n` inside the literal becomes a real newline which triggers
-   the paste behaviour -- keep it truly single-line.
-
-2. **Paste buffer + Enter**: Load the buffer and paste, then submit with a
-   separate Enter after the paste completes.
-   ```bash
-   tmux load-buffer -b msg - <<< "$multi_line_msg"
-   tmux paste-buffer -b msg -t "$target"
-   sleep 0.2
-   tmux send-keys -t "$target" Enter
-   ```
-   Results vary by TUI version -- test before relying on it.
-
-3. **Accept as a feature**: Treat multi-line pastes as "drafts" that the
-   human must review and Enter to send. This is often the right default
-   when the message is long or contains code.
+For large pastes, bracketed-paste behaviour, and the race condition that
+can swallow the submit, see `docs/claude-code-interaction.md`.
 
 ### Identifying Your Own Pane (`$TMUX_PANE`)
 

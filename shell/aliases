@@ -1,7 +1,8 @@
 # alias t='tmux new-session -As main'
 alias t='tmux-session'
+# alias tv='tmux-session ${EDITOR:-vi}' # How do we get it to run nvim in the new window?
 alias tc='tmux-cheat'
 alias ta='tmux attach'
 alias tn='tmux new -s $(ds)'
-alias tl='tmux-session --list'
+alias tl='tmux-session --link'
 alias tg='tmux-session'

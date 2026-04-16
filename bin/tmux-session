@@ -19,6 +19,7 @@ Unified tmux session management.
 Modes:
   (default)          Create or switch to a session (repo name, arg, or "main")
   --first-only       Attach only if no clients are attached (login use)
+  --link             Create a linked session (independent window selection)
   --dev              Create dev window layout (delegates to tmux-dev-window)
   --list             List sessions with attached client counts
 
@@ -29,6 +30,10 @@ Default mode:
   tmux-session               Detect git repo, create/switch to that session
   tmux-session myproject     Create/switch to "myproject" session
   tmux-session ~/Code/repo   Create/switch to "repo" session in that directory
+
+Link mode (independent window views of same session):
+  tmux-session --link                Link to detected session (taskmaster-2)
+  tmux-session --link myproject      Link to "myproject" session
 
 First-only mode (for terminal startup):
   tmux-session --first-only          Attach to "main" if no clients attached
@@ -113,6 +118,57 @@ mode_default() {
   exec tmux new-session -As "$session_name" -c "$work_dir"
 }
 
+mode_link() {
+  local session_name="${1:-}"
+  local work_dir
+
+  if [[ -z "$session_name" ]]; then
+    session_name=$(detect_session_name)
+    work_dir=$(detect_work_dir)
+  elif [[ -d "$session_name" || -f "$session_name" ]]; then
+    local target_path
+    target_path=$(cd "$(dirname "$session_name")" && pwd)
+    [[ -d "$session_name" ]] && target_path=$(cd "$session_name" && pwd)
+    local repo_root
+    repo_root=$(git -C "$target_path" rev-parse --show-toplevel 2>/dev/null) || true
+    if [[ -n "$repo_root" ]]; then
+      work_dir="$repo_root"
+      session_name=$(basename "$repo_root")
+    else
+      work_dir="$target_path"
+      session_name=$(basename "$target_path")
+    fi
+  else
+    work_dir="${PWD}"
+  fi
+
+  # Base session must exist
+  if ! session_exists "$session_name"; then
+    echo "Session '$session_name' does not exist. Use 't $session_name' first." >&2
+    exit 1
+  fi
+
+  # Find next available linked name
+  local n=2
+  local linked_name
+  while true; do
+    linked_name="${session_name}-${n}"
+    if ! session_exists "$linked_name"; then
+      break
+    fi
+    ((n++))
+  done
+
+  # Create grouped session linked to the base
+  tmux new-session -ds "$linked_name" -t "=$session_name"
+
+  # Switch or attach
+  if [[ -n "${TMUX:-}" ]]; then
+    exec tmux switch-client -t "=$linked_name"
+  fi
+  exec tmux attach-session -t "=$linked_name"
+}
+
 mode_first_only() {
   local session_name="${1:-main}"
 
@@ -164,6 +220,7 @@ mode_list() {
 
 case "${1:-}" in
   --first-only) shift; mode_first_only "$@" ;;
+  --link)       shift; mode_link "$@" ;;
   --dev)        shift; mode_dev "$@" ;;
   --list)       mode_list ;;
   --help|-h)    show_help ;;

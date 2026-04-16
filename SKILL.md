@@ -95,16 +95,28 @@ tmux-dev-window -s session-name
 
 See `docs/tmux-dev-window.md` for detailed documentation.
 
-#### `tmux-auto-connect`
+#### `tmux-session` (alias: `t`)
 
-Automatically connect to or create a tmux session.
+Unified session management -- create, switch, link, and list sessions.
 
 ```bash
-# Auto-connect to default session
-tmux-auto-connect
+# Create/switch to session (detects git repo name)
+t                         # from a git repo directory
+t myproject               # by name
+t ~/Code/repo             # by path
 
-# Connect to specific session
-tmux-auto-connect session-name
+# Linked session (independent window views)
+t --link                  # creates projectname-2 linked to current
+t --link myproject        # link to specific session
+
+# List sessions with client counts
+t --list
+
+# Development layout
+t --dev                   # create dev window in current session
+
+# First-only attach (for terminal startup)
+t --first-only            # attach to "main" only if no clients attached
 ```
 
 ### Theme Management
@@ -221,6 +233,7 @@ Progressive disclosure documentation in `docs/`:
 - `session-window-pane-management.md` - Comprehensive tmux command reference
 - `tmux-mcp.md` - MCP server setup and AI integration guide
 - `tmux-mcp-ai.md` - Best practices for AI agents using tmux MCP
+- `claude-code-interaction.md` - Sending input to Claude Code sessions (paste handler, bracketed-paste race)
 - `tmux-dev-window.md` - Development window layout documentation
 - `theme-switching.md` - Appearance-based theme switching
 - `cheat.md` - Quick reference for tmux key bindings
@@ -282,14 +295,34 @@ tmux-dev-window
 
 ```bash
 # Auto-connect to session (creates if needed)
-tmux-auto-connect work
+t work
 
 # List all sessions
 tmux ls
 
 # Switch to specific session
-tmux switch -t project
+t project
 ```
+
+### Opening a Session in a Second Terminal
+
+To view different windows of the same session from two terminals, use linked sessions:
+
+```bash
+# From the second terminal, in the project directory:
+t --link
+
+# This creates a grouped session (e.g., taskmaster-2) linked to taskmaster.
+# Both terminals share the same windows but can independently select
+# which window is active. Ctrl+B N/P in each terminal navigates independently.
+
+# To switch between the original and linked session:
+t taskmaster      # switch to original
+t taskmaster-2    # switch to linked copy
+```
+
+Linked sessions auto-number: if `taskmaster-2` exists, it creates `taskmaster-3`, etc.
+The base session must already exist -- create it first with `t` if needed.
 
 ## Best Practices
 
@@ -320,6 +353,23 @@ This is how `agents minion send` works internally. The `-l` flag ensures the mes
 ```bash
 agents minion send m-worker "your message here"
 ```
+
+For large pastes, bracketed-paste behaviour, and the race condition that
+can swallow the submit, see `docs/claude-code-interaction.md`.
+
+### Identifying Your Own Pane (`$TMUX_PANE`)
+
+Inside tmux, `$TMUX_PANE` holds the pane ID of the shell or program that
+inherited the environment -- the pane **you** are in. `#P` and
+`display-message` without a target return the **active** pane of the
+current window, which may not be you.
+
+```bash
+echo "$TMUX_PANE"                         # e.g. %42 -- your own pane
+tmux capture-pane -p -t "$TMUX_PANE"      # self-aware capture
+```
+
+See `docs/session-window-pane-management.md` for sibling-pane patterns.
 
 ### For Users
 

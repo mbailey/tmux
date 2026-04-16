@@ -1,0 +1,10 @@
+{
+  "name": "tmux",
+  "description": "Terminal multiplexer management and workflow automation -- tmux sessions, windows, panes, intelligent window naming, teammate pane layouts, and tmux-MCP patterns for AI agents.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Mike Bailey",
+    "email": "mike@failmode.com"
+  },
+  "skills": "./skills"
+}

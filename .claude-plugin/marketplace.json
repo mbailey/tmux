@@ -1,0 +1,19 @@
+{
+  "name": "tmux",
+  "metadata": {
+    "description": "Terminal multiplexer management and workflow automation for AI agents and humans.",
+    "version": "1.0.0"
+  },
+  "owner": {
+    "name": "Mike Bailey",
+    "email": "mike@failmode.com"
+  },
+  "plugins": [
+    {
+      "name": "tmux",
+      "description": "Control tmux sessions, windows, and panes from AI agents. Intelligent window naming, teammate pane layouts for parallel agents, session management, clipboard integration, and tmux-MCP quirks. Ships as both a metool package and a Claude Code plugin.",
+      "source": "./",
+      "category": "developer-tools"
+    }
+  ]
+}

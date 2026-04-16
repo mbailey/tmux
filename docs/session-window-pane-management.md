@@ -84,6 +84,33 @@ tmux list-panes -t session:window    # List panes in specific window
 tmux lsp -F '#{pane_id}'             # List pane IDs
 ```
 
+### Identifying Your Own Pane
+
+When running inside tmux, `$TMUX_PANE` is set to the pane ID of the shell
+(or program) that inherited the environment. This is the pane you are in
+-- not necessarily the active pane of the window.
+
+```bash
+echo "$TMUX_PANE"                    # e.g. %42 -- the pane YOU are in
+tmux display-message -p '#{pane_id}' # Active pane's ID (may differ)
+tmux display-message -p '#P'         # Active pane's index (may differ)
+```
+
+**Why this matters for AI agents and scripts:** `display-message` and `#P`
+report the active pane of the current window, which may not be the pane
+your script is running in. To reliably reference "self," use `$TMUX_PANE`.
+
+```bash
+# Self-aware capture (works even if another pane is active)
+tmux capture-pane -p -t "$TMUX_PANE"
+
+# Target the other pane in a two-pane window (assumes self + one sibling)
+sibling=$(tmux list-panes -F '#{pane_id}' | grep -v "^${TMUX_PANE}\$")
+tmux send-keys -t "$sibling" -l "message"
+tmux send-keys -t "$sibling" Enter
+```
+
+
 ### Create Panes
 ```bash
 tmux split-window -h                 # Split horizontally (side by side)

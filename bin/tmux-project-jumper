@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# tmux-project-jumper - fuzzy-find a taskmaster project and switch/create its tmux session.
+#
+# Designed to be launched from `tmux display-popup -E`, bound to a tmux key.
+#
+# Example binding in ~/.tmux.conf:
+#   bind P display-popup -E -w 80% -h 60% "tmux-project-jumper"
+#
+# Source: `tm project list --format=json` (PROJECT.md-discovered registry).
+# Path resolution: derives local clone path from `git_url` via convention:
+#   github.com/owner/name        -> ~/Code/github.com/owner/name
+#   ssh-host:owner/name(.git)    -> ~/Code/<ssh-host>/owner/name
+# Projects whose clone isn't found locally are skipped from the list.
+#
+# On select: exec `tmux-session <path>` (create-or-switch, names session after basename).
+#
+# Companion to:
+#   prefix + s  -> choose-tree -Zs (existing sessions)
+#   prefix + P  -> this jumper (any registered project, create if missing)
+#
+# Tracked at TM-1229.
+
+set -o nounset -o pipefail -o errexit
+
+# Resolve a git_url to a local clone path. Echoes nothing if not found on disk.
+resolve_path() {
+  local url="$1"
+  [[ -z "$url" ]] && return 0
+
+  local host owner name candidate
+  if [[ "$url" =~ ^([^:/[:space:]]+):([^/[:space:]]+)/(.+)$ ]]; then
+    # ssh-alias form: failmode:mbailey/skillbox.git
+    host="${BASH_REMATCH[1]}"
+    owner="${BASH_REMATCH[2]}"
+    name="${BASH_REMATCH[3]%.git}"
+  elif [[ "$url" =~ ^([^/[:space:]]+)/([^/[:space:]]+)/(.+)$ ]]; then
+    # path form: github.com/mbailey/foo
+    host="${BASH_REMATCH[1]}"
+    owner="${BASH_REMATCH[2]}"
+    name="${BASH_REMATCH[3]%.git}"
+  else
+    return 0
+  fi
+
+  candidate="$HOME/Code/$host/$owner/$name"
+  [[ -d "$candidate" ]] && echo "$candidate"
+}
+
+# Emit one TSV row per project with a resolved local path: code<TAB>label<TAB>path
+build_index() {
+  local code name display url path
+  tm project list --format=json | jq -r '.[] | [.code, .name, (.display_name // .name), (.git_url // "")] | @tsv' |
+    while IFS=$'\t' read -r code name display url; do
+      path=$(resolve_path "$url")
+      [[ -z "$path" ]] && continue
+      printf "%s\t%s\t%s\n" "$code" "$display" "$path"
+    done
+}
+
+# Show fzf picker. fzf displays only the first two TSV columns; the path is hidden.
+pick() {
+  fzf \
+    --delimiter=$'\t' \
+    --with-nth=1,2 \
+    --header='Jump to project (Enter switches/creates session; Esc cancels)' \
+    --no-multi \
+    --reverse
+}
+
+main() {
+  if [[ "${1:-}" == "--list" ]]; then
+    build_index
+    exit 0
+  fi
+
+  local index selected path
+  index=$(build_index)
+  if [[ -z "$index" ]]; then
+    echo "tmux-project-jumper: no projects with discoverable local clones." >&2
+    echo "Source: tm project list --format=json" >&2
+    sleep 2
+    exit 1
+  fi
+
+  selected=$(printf '%s\n' "$index" | pick) || exit 1
+  path=$(awk -F'\t' '{print $3}' <<<"$selected")
+  [[ -z "$path" ]] && exit 1
+
+  exec tmux-session "$path"
+}
+
+main "$@"
